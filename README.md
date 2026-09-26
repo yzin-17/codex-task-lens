@@ -1,102 +1,80 @@
 # Codex Task Lens · 任务透镜
 
-嵌入 Codex 的任务清单面板，让长任务的进展一目了然。
+嵌入 Codex 的任务进度面板：从本地 Markdown 逐项展示已完成／未完成，支持多个文档、章节范围、进度圆环、固定与拖动。独立于 Skill、Hooks 和模型登记命令；不改写 Task 文档，不推断代码是否验收，不估算工作量或 ETA。非 OpenAI 官方产品。
 
-本地读取 Markdown Task 文档，逐项展示 **已完成／未完成**。独立于任何 Skill、Hooks、模型登记命令和 app-server；不修改 Task 文档，不推断代码是否完成，不估算工作量或 ETA。
+## 下载桌面版
 
-> Alpha：已提供 macOS CDP 接入、对话识别、内嵌面板与独立浏览器面板。受控 Chromium 测试不等于某个 Codex Desktop 版本的真机验收；实际环境与剩余门禁见 [兼容记录](docs/compatibility/macos.md) 和 [实施台账](docs/tasks/task-lens-mvp.md)。非 OpenAI 官方产品。
+从 [GitHub Releases](https://github.com/yzin-17/codex-task-lens/releases) 下载对应系统的构建，**无需 Node、pnpm、Git 或命令行构建**。目前为 `0.1.0-alpha.2` 预发布，平台与验收边界见 [发行说明](docs/releases/0.1.0-alpha.2.md)。
 
-## 安装与构建
+| 系统 | 附件后缀 | 使用 |
+| --- | --- | --- |
+| Apple Silicon Mac | `mac-arm64.dmg` / `mac-arm64.zip` | 安装或解压 `.app` 后双击 |
+| Intel Mac | `mac-x64.dmg` / `mac-x64.zip` | 安装或解压 `.app` 后双击 |
+| Windows x64 | `win-x64-Setup.exe` / `win-x64.zip` | 安装版或完整解压便携目录后运行 EXE |
 
-需要 Node.js 24.x，pnpm 版本由仓库固定。
+Mac 尚未完成 Developer ID 签名与 Apple 公证，Windows 未签名，系统可能提示来源未知。不要关闭系统安全保护。Windows 真实 Codex Desktop 的界面／签名兼容尚待单独验收；连接不受支持时仍可使用独立清单。
+
+双击启动后，控制台自动连接已配置端口（默认 9341），提供连接／停止、选择 Codex 应用、选择项目、独立清单和调试启动。关闭控制台后可从菜单栏／托盘返回，退出 Task Lens 才停止监控。
+
+首次从旧脚本版升级，应先停止旧 Task Lens，**不需要退出已有 CDP 的 Codex**。桌面版复用 Mac 的原有绑定数据目录；不会删除锁或强行接管旧实例。之后日常运行只需双击。
+
+## 连接与共存
+
+已有其他 CDP 工具时，填相同的可信本机端口即可。不同工具使用独立连接；Task Lens 不导航、不暂停宿主、不接管网络，只清理自己的面板。新版 Task Lens 使用目标锁，第二个实例不会替换活跃实例；旧版本不支持该协议，不应重复启动。见 [CDP 共存边界](docs/specs/cdp-coexistence.md)。
+
+未开放 CDP 时，先等待任务结束并正常退出 Codex，再点击控制台“调试启动”。该操作会请求明确确认，不强退正在运行的 Codex，不接管未知端口进程。
+
+**退出 Task Lens 不会关闭 Codex 的 CDP 调试端口。** 需正常退出调试启动的 Codex，再从普通入口启动。回环地址不是认证边界，同机程序仍可能连接；不要转发到公网或运行不可信的调试工具。
+
+## 使用任务清单
+
+点击 Codex 输入框工具栏中的“进度”。文档页顶部常驻已选摘要，候选优先展示；手动添加仅分“文件／目录”，文件支持一个或多个绝对路径，每行一个，无需授权复选框。点击“预览文件”才读取所列路径，目录点击“查找文档”后再从候选添加。
+
+最多 16 份 `.md`／`.markdown`，真实路径去重。章节可搜索；点击已选文件名或“管理”调整范围，标签 × 可快速移除。新增／移除／范围调整先进入草稿，底部确认后才更新绑定和进度；取消恢复原绑定，不删除源文件。
+
+清单按文档显示未完成与已完成，两组默认展开。关闭浮窗后进度仍更新，图钉可固定，标题栏可在当前对话区域内拖动。源文件失效时明确标记缓存，不把失败显示成零项成功。
+
+工具只写自己的应用数据目录。Mac 默认 `~/Library/Application Support/CodexTaskLens/`，Windows 默认 `%APPDATA%/CodexTaskLens/`。不修改 Codex 应用包，不读取 `auth.json`，不上传聊天或文件。绑定存储为 schema v2，旧 v1 自动兼容读取；回退旧二进制前需备份，不能删状态绕过错误。
+
+## 源码开发
+
+以下仅面向开发者，桌面包用户不需要执行。
 
 ```bash
 corepack enable
 pnpm install --frozen-lockfile
 pnpm build
-```
-
-## 在 Codex 内使用
-
-连接你已开放的本机 CDP 端口，不会自动退出或重启 Codex：
-
-```bash
 pnpm run doctor -- --cdp-port 9341
 pnpm start -- --cdp-port 9341 --workspace "$PWD"
 ```
 
-`--workspace` 表示明确授权读取该目录内的 Markdown。点击输入框底部左侧、权限按钮之后的「进度」入口，以浮窗查看清单。入口显示已完成／总数与勾选比例圆环，关闭浮窗仍自动更新，不撑高输入区。标题栏图钉可固定浮窗，固定后外点不收起；按住标题栏拖动，范围限制在当前对话列，方向键也可通过左侧拖动柄移动。取消固定恢复外点关闭，× 始终可关闭；切换对话清理旧浮窗。首次点击「绑定 Task 文档」，在「文档」中添加路径、点击「预览文件」，最后确认绑定；以后切换对话自动跟随各自绑定。
+需要 Node.js 24.x，pnpm 版本由仓库固定。`--workspace` 是对该目录 Markdown 的明确授权；不传时可在面板选择具体文件。Mac 可用 `--app "/实际路径/Codex.app"` 指定应用；不同 profile 使用不同且固定的 `--source-id`，不要随端口变化修改。
 
-支持一份或多份 `.md`／`.markdown`：可点击「选择文件…」使用 macOS 文件多选，也可在路径框每行输入一个绝对路径。最多 16 份，重复的实际文件不重复计数；每份可选择整篇或章节。新增、移除先进入草稿，确认整组后才保存；取消不修改原绑定。浮窗按文件列出未完成、已完成项；某份异常不阻塞其他文档。
+可选会话记录仅在明确传入 `--session-root "${CODEX_HOME:-$HOME/.codex}" --allow-session-read` 时读取。日志缺失、未知格式和路径歧义时仍可扫描授权目录、手动绑定；不猜最近活动会话就是当前页面。
 
-不传 `--workspace` 也可在面板中输入文件或目录路径并授权。可用 `--app "/实际路径/Codex.app"` 指定应用。不同 Codex profile 使用不同且固定的 `--source-id`；不要随端口或窗口变化改这个标识。
+独立源码模式使用 `pnpm start -- --standalone` 或 `pnpm dev:standalone`。CLI 浏览器凭证只在内存中使用，刷新后可能需要重新打开本次授权入口；桌面版独立窗口的 Ctrl/Cmd+R 会重新使用内存入口，不把凭证写入日志。
 
-需要结合当前对话的本地记录查找文档时，显式授权记录目录：
-
-```bash
-pnpm start -- --cdp-port 9341 --workspace "$PWD" \
-  --session-root "${CODEX_HOME:-$HOME/.codex}" --allow-session-read
-```
-
-仅适配已声明的 rollout JSONL 格式与明确文件引用。日志缺失、无法打开、新格式或路径有歧义时，仍可扫描授权目录、手动绑定；不会猜“最近活动的会话就是当前对话”。已授权目录初始化失败会显示降级诊断，不再导致整个工具退出；修复数据源后重新启动恢复线索。
-
-## 独立模式
+## 验证与构建桌面包
 
 ```bash
-pnpm start -- --standalone
-# 或开发时构建并启动
-pnpm dev:standalone
-```
-
-macOS 自动打开本地浏览器面板。可手动选择已有绑定或独立文档；CDP 连接失败不影响这个模式。支持文件实时更新、原子保存、删除重建、章节选择、绑定持久化和源文件打开。
-
-每次运行的浏览器凭证只在内存中使用，不打印到日志。直接刷新或关闭页面后，当前版本需要重新启动工具以重新打开授权入口，文档绑定保留。`--no-open` 适合仅使用内嵌面板；不会输出可复制的带凭证网址。
-
-## 绑定数据升级
-
-本版将绑定存储升级为 schema v2。旧单文件绑定读取为一项数组，保留身份、范围和版本；只在下一次成功保存时写入新格式。回退旧版本前须备份状态目录；旧二进制不能读取 v2，不应手动删除状态来绕过错误。
-
-## 诊断、停止与边界
-
-`pnpm start -- --help` 查看参数；`Ctrl+C` 只停止本工具。没有运行中的 Codex 时，才可显式使用 `--launch-codex` 调试启动；已有实例不会被强退，未知进程占用的端口不会被接管。
-
-**关闭面板或停止 Task Lens 不会关闭 Codex 的 CDP 调试端口。** 需正常退出调试启动的 Codex，再从普通应用入口启动。CDP 的回环地址不是认证边界，同机进程仍可能连接；不要转发到公网或运行不可信的本地程序。
-
-工具只写自己的状态目录（默认 `~/Library/Application Support/CodexTaskLens/`），不写 `.app`、`app.asar`、登录文件或模型配置；不读取 `auth.json`，不上传聊天和文件。不要同时启动多个工具实例接管同一个 Codex renderer。
-
-## 验证
-
-```bash
-pnpm lint && pnpm typecheck && pnpm test && pnpm build
+pnpm lint && pnpm typecheck && pnpm test && pnpm test:desktop && pnpm build
 pnpm exec playwright install chromium
 pnpm test:ui
-# 只读结构探测
-pnpm test:mac -- --enable --probe-only --cdp-port 9341
+# 开发者打包：目标须与本机匹配
+npm ci --prefix tools/desktop --ignore-scripts
+node scripts/generate-icons.mjs
+pnpm build:desktop -- --mac --arm64
+pnpm test:package
 ```
 
-结构探测不代表 I2 完整通过。需要实际验收时，先停止 Task Lens（保留 Codex 运行），在干净工作树的交互终端执行：
+Windows 使用 `--win --x64`，Intel Mac 使用 `--mac --x64`。依赖锁固定在 `tools/desktop/package-lock.json`；Release workflow 在三个原生 runner 上打包并测试实际可执行文件。只有产物测试和校验和检查都通过才可发布。
 
-```bash
-pnpm build
-pnpm test:mac:acceptance -- --enable --interactive --cdp-port 9341
-```
-
-向导创建独立临时仓库、两个 worktree 和 Task 文档，引导 A→B→A 真实面板绑定；自动测试文件生命周期、20 次可见更新时延、50 次工具启停清理与独立降级。侧聊、宿主操作等场景逐项记录人工 PASS／FAIL／SKIP；跳过不算通过。可选日志来源授权与完整步骤见 [I2 向导说明](docs/validation/task-lens-mvp/I2.md)。
-
-报告保存在 `test-results/mac-acceptance-*/report.json` 和 `report.md`，包含原始测量、版本、构建指纹与脱敏身份，不含正文或凭证。不自动上传、不修改日常绑定、不勾选 Task；验收向导只修改它创建的临时文件。受控 CI 验证向导功能，不冒充用户 Mac 结果。
+实际 Codex 验收入口仍为 `pnpm test:mac -- --enable --probe-only --cdp-port 9341`（只读预检）和 `pnpm test:mac:acceptance -- --enable --interactive --cdp-port 9341`（交互向导）。先停止 Task Lens，保留 Codex 运行；跳过场景不算通过。CI 的受控 Chromium 与打包自检均不能替代真实账号／多窗口／侧聊验收。
 
 ## 文档
 
-- [一期 Spec](docs/specs/2026-09-26-task-lens-mvp.md) · [Task 台账](docs/tasks/task-lens-mvp.md) · [验证索引](docs/validation/task-lens-mvp/README.md)
-- [开发与运行说明](docs/development.md) · [适配契约来源](docs/compatibility/adapter-contracts.md) · [后续 TODO](docs/TODO.md)
-- [I2 验收向导](docs/validation/task-lens-mvp/I2.md) · [验收工具测试](docs/validation/task-lens-mvp/I2-runner.md) · [R1 状态](docs/validation/task-lens-mvp/R1.md)
-
-- [工具栏浮窗与多文档修订台账](docs/tasks/toolbar-multidoc.md) · [修订验证](docs/validation/task-lens-mvp/toolbar-multidoc-2026-09-26.md)
-
-## 文档页的已选管理
-
-「文档」页顶部固定显示已选数量、前两个文件名和 +N；中间优先展示已授权范围内的候选，手动路径使用「文件｜目录」分段切换；文件模式同时支持一个或多个路径（每行一个），无需勾选，点击「预览文件」才读取所列文件；目录模式点击「查找文档」才读取该目录。「选择文件…」仍是原来的系统文件选择器，不新增目录混选。
-
-添加/预览后留在原位置，可连续添加。点击顶部「管理」、文件标签或 +N，在同一浮窗调整范围、移除文档和处理错误；章节支持搜索，返回保留添加区滚动位置。底部固定显示新增/移除/范围更改和确认操作。工具栏只统计已保存的绑定，取消不改原绑定。
-
-实现与验收见 [文档页修订记录](docs/validation/task-lens-mvp/document-manager-2026-09-27.md)。
+- [桌面发行 Spec](docs/specs/2026-09-27-desktop-release.md) · [发行任务](docs/tasks/desktop-release.md) · [产物验证](docs/validation/desktop-release-2026-09-27.md)
+- [一期 Spec](docs/specs/2026-09-26-task-lens-mvp.md) · [原实施台账](docs/tasks/task-lens-mvp.md) · [后续 TODO](docs/TODO.md)
+- [开发与运行](docs/development.md) · [Mac 兼容记录](docs/compatibility/macos.md) · [适配契约](docs/compatibility/adapter-contracts.md)
+- [工具栏／多文档修订台账](docs/tasks/toolbar-multidoc.md) · [文档页验证](docs/validation/task-lens-mvp/document-manager-2026-09-27.md)
+- [I2 向导](docs/validation/task-lens-mvp/I2.md) · [I2 工具测试](docs/validation/task-lens-mvp/I2-runner.md) · [R1 状态](docs/validation/task-lens-mvp/R1.md) · [原验证索引](docs/validation/task-lens-mvp/README.md)

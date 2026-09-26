@@ -1,0 +1,10 @@
+import { spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
+import path from 'node:path';
+const requireTools = createRequire(path.resolve('tools/desktop/package.json'));
+const cli = requireTools.resolve('electron-builder/cli.js');
+const args = process.argv.slice(2).filter(value => value !== '--');
+if (args.some(value => !['--mac', '--win', '--arm64', '--x64', '--dir'].includes(value))) throw new Error('Unsupported desktop packaging option');
+const result = spawnSync(process.execPath, [cli, '--config', 'electron-builder.cjs', '--publish', 'never', ...args], { stdio: 'inherit' });
+if (result.error) throw result.error;
+process.exitCode = result.status ?? 1;
