@@ -590,3 +590,52 @@ test('chip remove remains visible for long names and preserves final-binding con
     expect(await readFile(file, 'utf8')).toBe('- [x] done\n');
   } finally { await f.close(); }
 });
+
+for (const via of ['close-button', 'trigger', 'escape', 'native-hide'] as const) {
+  test(`closing a pinned popover via ${via} resets pinning before it reopens`, async () => {
+    const f = await fixture(); try {
+      const file = path.join(f.root, 'unpin.md'); await writeFile(file, '- [x] done\n- [ ] pending\n');
+      await expand(f.page); await bind(f.page, file);
+      const popup = f.page.locator('.lens-embedded-shell'), entry = f.page.locator('.lens-trigger');
+      await f.page.getByLabel('固定浮窗', { exact: true }).click();
+      await expect(f.page.getByLabel('取消固定浮窗', { exact: true })).toHaveAttribute('aria-pressed', 'true');
+      if (via === 'close-button') await f.page.getByLabel('关闭任务清单', { exact: true }).click();
+      else if (via === 'trigger') await entry.click();
+      else if (via === 'escape') await f.page.getByLabel('关闭任务清单', { exact: true }).press('Escape');
+      else await popup.evaluate(node => (node as HTMLElement).hidePopover());
+      await expect(popup).not.toBeVisible();
+      await entry.click();
+      await expect(f.page.getByLabel('固定浮窗', { exact: true })).toHaveAttribute('aria-pressed', 'false');
+      await expect(entry).toHaveText('进度 1/2');
+      await f.page.getByLabel('输入', { exact: true }).click();
+      await expect(popup).not.toBeVisible();
+      expect(await readFile(file, 'utf8')).toBe('- [x] done\n- [ ] pending\n');
+    } finally { await f.close(); }
+  });
+}
+
+test('pin reset is synchronous even when close and reopen coalesce into one toggle event', async () => {
+  const f = await fixture(); try {
+    await expand(f.page); await f.page.getByLabel('固定浮窗', { exact: true }).click();
+    const popup = f.page.locator('.lens-embedded-shell');
+    await popup.evaluate(node => { (node as HTMLElement).hidePopover(); (node as HTMLElement).showPopover(); });
+    await expect(popup).toBeVisible();
+    await expect(f.page.getByLabel('固定浮窗', { exact: true })).toHaveAttribute('aria-pressed', 'false');
+    await f.page.getByLabel('输入', { exact: true }).click(); await expect(popup).not.toBeVisible();
+  } finally { await f.close(); }
+});
+
+test('Escape inside the section picker leaves the parent popover pinned', async () => {
+  const f = await fixture(); try {
+    const file = path.join(f.root, 'pinned-scope.md'); await writeFile(file, '# Tasks\n## Section\n- [ ] task\n');
+    await expand(f.page); await bind(f.page, file); await f.page.getByLabel('固定浮窗', { exact: true }).click();
+    await f.page.getByRole('button', { name: '管理文档', exact: true }).click();
+    await f.page.getByRole('button', { name: '管理已选文档', exact: true }).click();
+    await f.page.getByRole('button', { name: '计数范围 pinned-scope.md', exact: true }).click();
+    await f.page.getByRole('combobox').press('Escape');
+    await expect(f.page.getByRole('listbox')).toHaveCount(0);
+    await expect(f.page.getByLabel('取消固定浮窗', { exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await f.page.getByLabel('输入', { exact: true }).click();
+    await expect(f.page.locator('.lens-embedded-shell')).toBeVisible();
+  } finally { await f.close(); }
+});
