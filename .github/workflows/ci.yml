@@ -1,0 +1,50 @@
+name: CI
+on:
+  push:
+    branches: [main, 'feat/**']
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    name: verify (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: corepack enable
+      - name: Record build environment
+        shell: bash
+        run: |
+          node --version
+          pnpm --version
+          uname -sm
+          if [ "$RUNNER_OS" = "macOS" ]; then sw_vers; fi
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint && pnpm typecheck && pnpm test && pnpm build
+      - name: Install browser for production panel tests
+        if: runner.os == 'Linux'
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Verify UI and real standalone document flow
+        if: runner.os == 'Linux'
+        run: pnpm test:ui
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-failure-${{ runner.os }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 3
+# macOS here verifies core filesystem and HTTP behavior on a hosted runner.
+# It has no user's Codex app, no authorized CDP endpoint, and is NOT I2 acceptance.

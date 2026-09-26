@@ -1,0 +1,10 @@
+import js from '@eslint/js';
+import tseslint from 'typescript-eslint';
+export default tseslint.config(
+  { ignores: ['dist/**', 'node_modules/**', 'playwright-report/**', 'test-results/**'] },
+  js.configs.recommended,
+  ...tseslint.configs.recommended,
+  { files: ['**/*.{ts,tsx}'], rules: { '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }], 'no-eval': 'error', 'no-new-func': 'error' } },
+  { files: ['**/*.mjs'], languageOptions: { globals: { process: 'readonly', console: 'readonly', URL: 'readonly' } } },
+  { files: ['src/core/**', 'src/contracts/**'], rules: { 'no-restricted-imports': ['error', { patterns: ['node:*', '../host/*', '../adapters/*', '../ui/*', '../files/*', '../store/*'] }] } }
+);

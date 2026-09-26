@@ -1,0 +1,38 @@
+{
+  "name": "codex-task-lens",
+  "version": "0.1.0-alpha.1",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.28.2",
+  "engines": { "node": ">=24 <25" },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:ui": "playwright test",
+    "build": "node scripts/build.mjs",
+    "dev:test": "vite --host 127.0.0.1 --port 4173 --strictPort",
+    "dev:standalone": "pnpm build && node dist/node/host/standalone-runtime.js",
+    "start": "node dist/node/host/standalone-runtime.js"
+  },
+  "dependencies": {
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "remark-gfm": "4.0.1",
+    "remark-parse": "11.0.0",
+    "unified": "11.0.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.2",
+    "@playwright/test": "1.58.0",
+    "@types/mdast": "4.0.4",
+    "@types/node": "24.10.9",
+    "@types/react": "19.2.9",
+    "@types/react-dom": "19.2.3",
+    "eslint": "9.39.2",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.54.0",
+    "vite": "7.3.1",
+    "vitest": "4.0.18"
+  }
+}
