@@ -86,6 +86,7 @@ export async function verifyEndpoint(app: CodexApp, port: number, run: Command =
   const pid = parseListeners(listeners.stdout, port);
   const executable = (await run('/bin/ps', ['-p', String(pid), '-o', 'comm='])).stdout.trim();
   if (executable !== app.executable) throw new LensError('permission_denied', 'CDP 端口不属于已验证的 Codex 主进程');
+  await run('/usr/bin/codesign', ['--verify', '--strict', '--test-requirement', requirement, app.executable]);
   const targets = (await list(port)).filter(value => isCodexTarget(value, port));
   // Recheck ownership after HTTP discovery before returning the capability.
   const again = parseListeners((await run('/usr/sbin/lsof', ['-nP', '-a', `-iTCP:${port}`, '-sTCP:LISTEN', '-Fpn'])).stdout, port);

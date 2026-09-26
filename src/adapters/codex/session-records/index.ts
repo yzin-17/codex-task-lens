@@ -1,4 +1,4 @@
-import { open, opendir, realpath } from 'node:fs/promises';
+import { open, opendir, realpath, lstat } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
@@ -111,13 +111,16 @@ export class SessionRecords {
   private async load(threadId: string): Promise<SessionHints> {
     if (!/^[0-9a-f-]{36}$/i.test(threadId)) return { status: 'unsupported', paths: [], diagnostics: ['会话标识格式不受支持'] };
     await this.index();
-    const candidates = this.files.filter(file => path.basename(file).includes(threadId)).slice(0, 8); const valid: State[] = [];
+    const candidates = this.files.filter(file => path.basename(file).includes(threadId));
+    if (candidates.length > 8) return { status: 'unsupported', paths: [], diagnostics: ['匹配记录过多，未用截断结果判断唯一会话'] };
+    const valid: State[] = []; let hasUnread = false;
     for (const file of candidates) {
       const resolved = await realpath(file).catch(() => '');
-      if (!resolved || !inside(this.root, resolved)) continue;
+      if (!resolved || resolved !== file || !inside(this.root, resolved)) continue;
       const handle = await open(resolved, constants.O_RDONLY | constants.O_NOFOLLOW).catch(() => null); if (!handle) continue;
       try {
-        const stat = await handle.stat(); if (!stat.isFile()) continue;
+        const stat = await handle.stat(), disk = await lstat(file);
+        if (!stat.isFile() || !disk.isFile() || await realpath(file) !== resolved || stat.ino !== disk.ino || stat.dev !== disk.dev) continue;
         let state = this.states.get(file) ?? fresh(file);
         const check = Buffer.alloc(state.anchor.length); if (check.length) await handle.read(check, 0, check.length, state.offset - check.length);
         if (state.ino !== stat.ino || stat.size < state.offset || !check.equals(state.anchor) || (stat.size === state.offset && state.mtime !== stat.mtimeMs)) state = fresh(file);
@@ -128,6 +131,7 @@ export class SessionRecords {
           if (!bytesRead) break; state.offset += bytesRead; budget -= bytesRead; this.consume(state, buffer.subarray(0, bytesRead), threadId);
         }
         state.anchor = Buffer.alloc(Math.min(64, state.offset)); if (state.anchor.length) await handle.read(state.anchor, 0, state.anchor.length, state.offset - state.anchor.length);
+        hasUnread ||= state.offset < stat.size;
         state.mtime = stat.mtimeMs; this.states.set(file, state);
         if (this.states.size > 16) this.states.delete(this.states.keys().next().value!);
         if (state.matched && !state.rejected) valid.push(state);
@@ -135,7 +139,7 @@ export class SessionRecords {
     }
     if (valid.length !== 1) return { status: valid.length ? 'unsupported' : 'unavailable', paths: [], diagnostics: [valid.length ? '匹配到多份会话记录，未猜测活动记录' : '未发现唯一的已支持会话记录；可手动绑定'] };
     const state = valid[0]!;
-    return { status: 'ready', ...(state.cwd ? { cwd: state.cwd } : {}), paths: structuredClone(state.paths), diagnostics: [`跳过未知／损坏记录：${state.skipped}`, ...(this.partial ? ['会话索引结果不完整'] : [])] };
+    return { status: 'ready', ...(state.cwd ? { cwd: state.cwd } : {}), paths: structuredClone(state.paths), diagnostics: [`跳过未知／损坏记录：${state.skipped}`, ...(this.partial ? ['会话索引结果不完整'] : []), ...(hasUnread ? ['会话记录增量读取尚未完成，重新查找可继续读取'] : [])] };
   }
   close(): void { this.closed = true; this.files = []; this.states.clear(); }
 }
