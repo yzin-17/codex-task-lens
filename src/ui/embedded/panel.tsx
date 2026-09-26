@@ -4,52 +4,21 @@ import { summarizeDocuments } from '../../core/document-set.js';
 import type { EmbeddedClient } from './client.js';
 import { DocumentManager } from '../components/binding-picker/document-manager.js';
 import { DocumentSetPanel } from '../components/task-panel/document-set-panel.js';
-export function EmbeddedPanel({ client, initialGrantId }: { client: EmbeddedClient; initialGrantId?: string }) {
+import { usePopover } from './use-popover.js';
+import { useFloatingWindow } from './use-floating-window.js';
+import { checkboxPercentage, type Rectangle } from './floating-geometry.js';
+const viewportBounds = (): Rectangle => ({ left: 0, top: 0, width: innerWidth, height: innerHeight });
+export function EmbeddedPanel({ client, initialGrantId, bounds = viewportBounds }: { client: EmbeddedClient; initialGrantId?: string; bounds?: () => Rectangle }) {
   const [view, setView] = useState<ViewState | null>(null), [connection, setConnection] = useState<string | undefined>();
-  const [open, setOpen] = useState(false), [tab, setTab] = useState<'tasks' | 'documents'>('tasks'), [message, setMessage] = useState('');
+  const [tab, setTab] = useState<'tasks' | 'documents'>('tasks'), [message, setMessage] = useState('');
   const trigger = useRef<HTMLButtonElement>(null), popup = useRef<HTMLDivElement>(null), titleId = useId();
   const progress = summarizeDocuments(view, !!connection), documents = documentsOf(view);
   useEffect(() => { const abort = new AbortController(); void client.watch(setView, setConnection, abort.signal); return () => abort.abort(); }, [client]);
-  const close = (restoreFocus = true) => { popup.current?.hidePopover(); if (restoreFocus) trigger.current?.focus({ preventScroll: true }); };
-  useEffect(() => {
-    const node = popup.current!, button = trigger.current!;
-    let outside = false, frame = 0, afterFrame = 0;
-    const pointer = (event: PointerEvent) => { outside = !event.composedPath().includes(node) && !event.composedPath().includes(button); };
-    const before = (event: Event) => {
-      cancelAnimationFrame(frame); cancelAnimationFrame(afterFrame);
-      const transition = event as ToggleEvent;
-      if (transition.newState === 'open') { outside = false; return; }
-      // The host can refocus its editor during Escape. Restore after that event,
-      // but never steal focus from an outside click or a newly selected conversation.
-      if (!outside && transition.oldState === 'open') frame = requestAnimationFrame(() => {
-        afterFrame = requestAnimationFrame(() => { if (!outside && button.isConnected && !node.matches(':popover-open')) button.focus({ preventScroll: true }); });
-      });
-    };
-    const toggle = () => { const showing = node.matches(':popover-open'); setOpen(showing); if (!showing) { setTab('tasks'); setMessage(''); } };
-    window.addEventListener('pointerdown', pointer, true); node.addEventListener('beforetoggle', before); node.addEventListener('toggle', toggle);
-    return () => { cancelAnimationFrame(frame); cancelAnimationFrame(afterFrame); window.removeEventListener('pointerdown', pointer, true); node.removeEventListener('beforetoggle', before); node.removeEventListener('toggle', toggle); if (node.matches(':popover-open')) node.hidePopover(); };
-  }, [client]);
-  useLayoutEffect(() => {
-    if (!open || !popup.current || !trigger.current) return;
-    const node = popup.current, button = trigger.current;
-    const place = () => {
-      const viewport = window.visualViewport, width = viewport?.width ?? innerWidth, height = viewport?.height ?? innerHeight;
-      const ox = viewport?.offsetLeft ?? 0, oy = viewport?.offsetTop ?? 0, rect = button.getBoundingClientRect(), margin = 12, gap = 8;
-      const availableAbove = rect.top - oy - margin - gap, availableBelow = oy + height - rect.bottom - margin - gap;
-      const above = availableAbove >= Math.min(360, height * .55) || availableAbove >= availableBelow;
-      const maxHeight = Math.max(48, Math.min(560, above ? availableAbove : availableBelow));
-      node.style.width = `${Math.min(460, width - margin * 2)}px`; node.style.maxHeight = `${maxHeight}px`;
-      const box = node.getBoundingClientRect();
-      node.style.left = `${Math.max(ox + margin, Math.min(rect.left, ox + width - margin - box.width))}px`;
-      node.style.top = `${Math.max(oy + margin, Math.min(above ? rect.top - gap - box.height : rect.bottom + gap, oy + height - margin - box.height))}px`;
-    };
-    const resize = new ResizeObserver(place); resize.observe(node); resize.observe(button);
-    window.addEventListener('resize', place); window.addEventListener('scroll', place, true); window.visualViewport?.addEventListener('resize', place);
-    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(); } };
-    window.addEventListener('keydown', escape, true); place();
-    node.querySelector<HTMLButtonElement>('[data-lens-close]')?.focus({ preventScroll: true });
-    return () => { resize.disconnect(); window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true); window.visualViewport?.removeEventListener('resize', place); window.removeEventListener('keydown', escape, true); };
-  }, [open]);
+  const { open, pinned, close, togglePin } = usePopover({ popup, trigger });
+  const floating = useFloatingWindow({ popup, trigger, open, bounds });
+  const percentage = checkboxPercentage(progress.completed, progress.total, progress.hasData && !progress.warning && !progress.partial);
+  useEffect(() => { if (!open) { setTab('tasks'); setMessage(''); } }, [open]);
+  useLayoutEffect(() => { if (open) popup.current?.querySelector<HTMLButtonElement>('[data-lens-close]')?.focus({ preventScroll: true }); }, [open]);
   function bound(next: ViewState) { setView(previous => previous && previous.bindingVersion > next.bindingVersion ? previous : next); setTab('tasks'); }
   async function openSource(bindingId: string, line: number) {
     if (!view) return;
@@ -57,13 +26,21 @@ export function EmbeddedPanel({ client, initialGrantId }: { client: EmbeddedClie
     catch (failure) { setMessage(failure instanceof Error ? failure.message : '无法打开源文件'); }
   }
   return <>
-    <button type="button" ref={trigger} className="lens-trigger" aria-label="展开任务清单" aria-haspopup="dialog" aria-expanded={open} aria-controls={titleId + '-popup'} title={`${progress.label}${progress.suffix ? ' · ' + progress.suffix : ''} · 点击查看任务文档`} onClick={event => event.currentTarget.focus({ preventScroll: true })} popoverTarget={titleId + '-popup'} popoverTargetAction="toggle">
-      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="m3 5 1.5 1.5L7 4M10 5h7M3 11h4m3 0h7M3 16h4m3 0h7" /></svg>
+    <button type="button" ref={trigger} className="lens-trigger" aria-label="展开任务清单" aria-haspopup="dialog" aria-expanded={open} aria-controls={titleId + '-popup'} title={`${progress.label}${progress.suffix ? ' · ' + progress.suffix : percentage === null ? '' : ` · 勾选 ${Math.round(percentage)}%`} · 点击查看任务文档`} onClick={event => event.currentTarget.focus({ preventScroll: true })} popoverTarget={titleId + '-popup'} popoverTargetAction="toggle">
+      <svg className="lens-progress-ring" data-percent={percentage === null ? 'unknown' : percentage} aria-hidden="true" width="16" height="16" viewBox="0 0 20 20" fill="none" strokeWidth="2">
+        <circle className="lens-ring-track" cx="10" cy="10" r="7.5" />
+        {percentage !== null && <circle className="lens-ring-value" cx="10" cy="10" r="7.5" pathLength="100" strokeDasharray={`${percentage} 100`} transform="rotate(-90 10 10)" />}
+      </svg>
       <span>{progress.label}</span>{progress.warning && <span className="lens-trigger-warning" title={progress.suffix || '连接异常'} aria-label={progress.suffix || '连接异常'}>!</span>}
     </button>
-    <div ref={popup} popover="auto" role="dialog" aria-modal="false" aria-labelledby={titleId} className="lens-embedded-shell" id={titleId + '-popup'} tabIndex={-1}>
-      <header className="lens-popover-header"><h2 id={titleId}>任务清单</h2><span className="lens-total-count">{progress.hasData ? `${progress.completed}/${progress.total}${progress.suffix ? ' · ' + progress.suffix : ''}` : documents.length ? '正在读取' : '尚未绑定'}</span><button type="button" data-lens-close aria-label="关闭任务清单" onClick={() => close()}>×</button></header>
-      <div className="lens-popover-subhead"><span className="lens-thread-label">当前对话 · {client.monitor.kind === 'thread' ? client.monitor.threadId.slice(0, 8) : ''}</span><span>本地只读</span></div>
+    <div ref={popup} popover="manual" role="dialog" aria-modal="false" aria-labelledby={titleId} className="lens-embedded-shell" id={titleId + '-popup'} tabIndex={-1}>
+      <header className="lens-popover-header" data-lens-drag-handle {...floating.dragHandlers}>
+        <button type="button" data-lens-move aria-label="移动进度浮窗" title="拖动标题栏；此按钮支持方向键移动，Shift 加速" onKeyDown={floating.onKeyDown}><svg width="14" height="16" viewBox="0 0 14 16" aria-hidden="true" fill="currentColor"><circle cx="4" cy="4" r="1"/><circle cx="10" cy="4" r="1"/><circle cx="4" cy="8" r="1"/><circle cx="10" cy="8" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="10" cy="12" r="1"/></svg></button>
+        <h2 id={titleId}>任务清单</h2><span className="lens-total-count">{progress.hasData ? `${progress.completed}/${progress.total}${progress.suffix ? ' · ' + progress.suffix : ''}` : documents.length ? '正在读取' : '尚未绑定'}</span>
+        <button type="button" data-lens-pin aria-label={pinned ? '取消固定浮窗' : '固定浮窗'} title={pinned ? '已固定：点击页面不收起' : '固定后点击页面不收起'} aria-pressed={pinned} onClick={() => { floating.holdPosition(); togglePin(); }}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M16 3H8l1 7-4 4v2h14v-2l-4-4zM12 16v5"/></svg></button>
+        <button type="button" data-lens-close aria-label="关闭任务清单" onClick={() => close()}>×</button>
+      </header>
+      <div className="lens-popover-subhead"><span className="lens-thread-label">当前对话 · {client.monitor.kind === 'thread' ? client.monitor.threadId.slice(0, 8) : ''}</span><span>{pinned ? '已固定 · 可拖动' : '本地只读'}</span></div>
       <nav className="lens-tabs" aria-label="任务视图"><button type="button" aria-pressed={tab === 'tasks'} onClick={() => setTab('tasks')}>清单</button><button type="button" aria-pressed={tab === 'documents'} disabled={!view || !!connection} onClick={() => setTab('documents')}>文档{documents.length ? ` ${documents.length}` : ''}</button></nav>
       <div className="lens-embedded-body">
         {connection && <p className="lens-popover-warning" role="status">{connection}；当前计数可能为缓存。</p>}

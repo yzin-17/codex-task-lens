@@ -4,6 +4,7 @@ import { createDomAdapter, THREAD_ATTRIBUTES, type PaneSelection } from '../../a
 import type { EmbeddedConfiguration, EmbeddedEvent, PaneIdentity } from '../../contracts/embedded.js';
 import { EmbeddedClient } from './client.js';
 import { EmbeddedPanel } from './panel.js';
+import { conversationBounds } from '../../adapters/codex/dom/toolbar.js';
 import './embedded.css';
 type Entry = { host: HTMLElement; root: Root; selection: PaneSelection; client: EmbeddedClient | null; stopEvents: () => void };
 type Instance = { inspect: () => PaneIdentity[]; receive: (event: EmbeddedEvent) => void; dispose: () => void; resources: () => { panes: number; observers: number; timers: number } };
@@ -25,9 +26,9 @@ export function install(config: EmbeddedConfiguration): void {
       const host = document.createElement('div'); host.dataset.taskLensHost = selection.paneId;
       const shadow = host.attachShadow({ mode: 'open' }), style = document.createElement('style'), mount = document.createElement('div');
       style.textContent = config.styles; shadow.append(style, mount); selection.toolbar!.append(host);
-      const eventTypes = ['keydown', 'keyup', 'keypress', 'input', 'click', 'submit']; const stop = (event: Event) => event.stopPropagation(); for (const type of eventTypes) host.addEventListener(type, stop);
+      const eventTypes = ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'dblclick', 'focusin', 'focusout', 'keydown', 'keyup', 'keypress', 'beforeinput', 'input', 'change', 'click', 'submit']; const stop = (event: Event) => event.stopPropagation(); for (const type of eventTypes) host.addEventListener(type, stop);
       const client = selection.threadId ? new EmbeddedClient(config, selection, payload => binding(payload)) : null;
-      const root = createRoot(mount); root.render(client ? createElement(EmbeddedPanel, { client, initialGrantId: config.initialGrantId }) : createElement('button', { className: 'lens-trigger lens-unknown', type: 'button', disabled: true, title: '未识别到当前对话；未显示其他对话的任务' }, '任务 · 未识别'));
+      const root = createRoot(mount); root.render(client ? createElement(EmbeddedPanel, { client, initialGrantId: config.initialGrantId, bounds: () => conversationBounds(selection.editor) }) : createElement('button', { className: 'lens-trigger lens-unknown', type: 'button', disabled: true, title: '未识别到当前对话；未显示其他对话的任务' }, '进度 · 未识别'));
       entries.set(selection.paneId, { host, root, selection, client, stopEvents: () => { for (const type of eventTypes) host.removeEventListener(type, stop); } });
     }
     const dark = document.documentElement.classList.contains('dark') || document.documentElement.dataset.theme === 'dark' || getComputedStyle(document.documentElement).colorScheme === 'dark';

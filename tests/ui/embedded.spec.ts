@@ -61,7 +61,7 @@ test('real CDP + shared service + React: bind, watch atomic saves and isolate A�
 test('conflicting identities never display another task; controls and uninstall remain intact', async () => {
   const f = await fixture(); try {
     await f.page.locator('.pane').evaluate((element, id) => element.setAttribute('data-conversation-id', id), b);
-    await expect(f.page.getByText('任务 · 未识别')).toBeVisible();
+    await expect(f.page.getByText('进度 · 未识别')).toBeVisible();
     await f.page.getByLabel('输入', { exact: true }).fill('untouched input'); await f.page.locator('#send').click(); await f.page.locator('#approve').click();
     await expect(f.page.locator('body')).toHaveAttribute('data-sent', 'yes'); await expect(f.page.locator('body')).toHaveAttribute('data-approved', 'yes');
     await f.bridge().close(); await expect(f.page.locator('[data-task-lens-host]')).toHaveCount(0);
@@ -99,7 +99,7 @@ test('automatically discovers within an explicitly authorized workspace and supp
     await f.page.getByRole('button', { name: '确认绑定', exact: true }).click();
     await expect(f.page.getByText('task from workspace', { exact: true })).toBeVisible();
     await f.page.locator('[data-above-composer-conversation-id]').evaluate(element => element.remove());
-    await expect(f.page.getByText('任务 · 未识别')).toBeVisible();
+    await expect(f.page.getByText('进度 · 未识别')).toBeVisible();
     await expect(f.page.getByText('task from workspace', { exact: true })).toHaveCount(0);
   } finally { await f.close(); }
 });
@@ -246,22 +246,22 @@ test('multiple Markdown previews commit together and the closed trigger keeps up
     await f.page.getByRole('checkbox').check(); await f.page.getByRole('button', { name: '授权并预览', exact: true }).click();
     await expect(f.page.locator('.lens-draft-files li')).toHaveCount(2);
     await f.page.getByRole('button', { name: '确认绑定', exact: true }).click();
-    await expect(f.page.locator('.lens-trigger')).toContainText('任务 2/4');
+    await expect(f.page.locator('.lens-trigger')).toContainText('进度 2/4');
     await expect(f.page.locator('.lens-file-section')).toHaveCount(2);
     await expect(f.page.locator('.lens-task-group h3>button[aria-expanded=true]')).toHaveCount(4);
     await f.page.getByLabel('关闭任务清单', { exact: true }).click();
     await writeFile(one, '- [x] alpha\n- [x] done\n');
-    await expect(f.page.locator('.lens-trigger')).toContainText('任务 3/4');
+    await expect(f.page.locator('.lens-trigger')).toContainText('进度 3/4');
     await expect(f.page.getByRole('dialog')).not.toBeVisible();
     await expand(f.page); await f.page.getByRole('button', { name: '管理文档', exact: true }).click();
     await f.page.getByLabel('移除 multi-b.md', { exact: true }).click();
     await f.page.getByRole('button', { name: '取消', exact: true }).click();
-    await expect(f.page.locator('.lens-trigger')).toContainText('任务 3/4');
+    await expect(f.page.locator('.lens-trigger')).toContainText('进度 3/4');
     await f.page.getByRole('button', { name: '管理文档', exact: true }).click();
     await f.page.getByLabel('移除 multi-b.md', { exact: true }).click();
     await f.page.getByRole('button', { name: '确认更改', exact: true }).click();
-    await expect(f.page.locator('.lens-trigger')).toContainText('任务 2/2');
-    await f.reattach(); await expect(f.page.locator('.lens-trigger')).toContainText('任务 2/2');
+    await expect(f.page.locator('.lens-trigger')).toContainText('进度 2/2');
+    await f.reattach(); await expect(f.page.locator('.lens-trigger')).toContainText('进度 2/2');
     expect(await readFile(two, 'utf8')).toBe('- [ ] beta\n- [x] done\n');
   } finally { await f.close(); }
 });
@@ -270,5 +270,84 @@ test('a missing toolbar is not replaced by arbitrary page insertion', async () =
     await f.page.locator('[data-composer-toolbar]').evaluate(node => node.remove());
     await expect(f.page.locator('[data-task-lens-host]')).toHaveCount(0);
     await expect(f.page.getByLabel('输入', { exact: true })).toBeVisible();
+  } finally { await f.close(); }
+});
+
+test('mouse focus and typing remain inside Task Lens despite composer mouse handlers', async () => {
+  const f = await fixture(); try {
+    await f.page.locator('[data-composer-root]').evaluate(shell => {
+      const editor = shell.querySelector('textarea')!;
+      const takeFocus = (event: Event) => { if (event.target !== editor) { event.preventDefault(); editor.focus(); } };
+      shell.addEventListener('mousedown', takeFocus); shell.addEventListener('pointerdown', takeFocus);
+    });
+    await expand(f.page); await f.page.getByRole('button', { name: '绑定 Task 文档', exact: true }).click();
+    const paths = f.page.getByLabel('本地绝对路径', { exact: true });
+    await paths.click(); await expect(paths).toBeFocused();
+    await paths.pressSequentially('/fixture/one.md'); await paths.press('Enter'); await paths.pressSequentially('/fixture/two.md');
+    await expect(paths).toHaveValue('/fixture/one.md\n/fixture/two.md');
+    await expect(f.page.getByLabel('输入', { exact: true })).toHaveValue('');
+    const type = f.page.getByLabel('路径类型', { exact: true });
+    await type.click(); await expect(type).toBeFocused(); await f.page.keyboard.press('Escape');
+    await expect(f.page.getByRole('dialog', { name: '任务清单', exact: true })).toBeVisible();
+    await type.selectOption('file'); await paths.click(); await expect(paths).toBeFocused();
+    await paths.pressSequentially('/fixture/single.md'); await expect(paths).toHaveValue('/fixture/single.md');
+    await f.page.getByRole('checkbox').click(); await expect(f.page.getByRole('checkbox')).toBeChecked();
+    await f.page.getByLabel('关闭任务清单', { exact: true }).click();
+    await f.page.getByLabel('输入', { exact: true }).click(); await f.page.keyboard.type('host still works');
+    await expect(f.page.getByLabel('输入', { exact: true })).toHaveValue('host still works');
+    await expect(f.page.locator('body')).not.toHaveAttribute('data-sent', 'yes');
+  } finally { await f.close(); }
+});
+
+test('pin survives outside input and Escape there; unpin and explicit close remain usable', async () => {
+  const f = await fixture(); try {
+    await expand(f.page);
+    const popup = f.page.locator('.lens-embedded-shell'), entry = f.page.locator('.lens-trigger');
+    await expect(entry).toHaveText('进度');
+    await expect(f.page.locator('.lens-progress-ring')).toHaveAttribute('data-percent', 'unknown');
+    await f.page.getByLabel('固定浮窗', { exact: true }).click();
+    await expect(f.page.getByLabel('取消固定浮窗', { exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await f.page.getByLabel('输入', { exact: true }).click(); await f.page.keyboard.type('outside draft');
+    await f.page.keyboard.press('Escape'); await expect(popup).toBeVisible();
+    await expect(f.page.getByLabel('输入', { exact: true })).toHaveValue('outside draft');
+    await f.page.getByLabel('取消固定浮窗', { exact: true }).click();
+    await f.page.getByLabel('输入', { exact: true }).click(); await expect(popup).not.toBeVisible();
+    await entry.click(); await f.page.getByLabel('固定浮窗', { exact: true }).click();
+    await f.page.getByLabel('关闭任务清单', { exact: true }).click(); await expect(popup).not.toBeVisible();
+    await expect(entry).toBeFocused();
+    await entry.click(); await f.page.getByLabel('关闭任务清单', { exact: true }).focus();
+    await f.page.keyboard.press('Escape'); await expect(popup).not.toBeVisible();
+  } finally { await f.close(); }
+});
+
+test('drag clamps to the conversation, persists on updates and resets on thread switch', async () => {
+  const f = await fixture(); try {
+    await f.page.locator('.pane').evaluate(node => { (node as HTMLElement).style.width = '840px'; (node as HTMLElement).style.height = '620px'; });
+    const file = path.join(f.root, 'drag.md'); await writeFile(file, '- [ ] first\n- [x] second\n');
+    await expand(f.page); await bind(f.page, file);
+    await expect(f.page.locator('.lens-progress-ring')).toHaveAttribute('data-percent', '50');
+    await f.page.getByLabel('固定浮窗', { exact: true }).click();
+    const popup = f.page.locator('.lens-embedded-shell'), handle = f.page.getByLabel('移动进度浮窗', { exact: true });
+    const start = await handle.boundingBox();
+    await f.page.mouse.move(start!.x + 5, start!.y + 5); await f.page.mouse.down();
+    await f.page.mouse.move(1250, 700, { steps: 8 }); await f.page.mouse.up();
+    const moved = await popup.boundingBox(), column = await f.page.locator('.pane').boundingBox();
+    expect(moved!.x).toBeGreaterThanOrEqual(column!.x);
+    expect(moved!.x + moved!.width).toBeLessThanOrEqual(column!.x + column!.width);
+    expect(moved!.y).toBeGreaterThanOrEqual(column!.y);
+    expect(moved!.y + moved!.height).toBeLessThanOrEqual(column!.y + column!.height);
+    await writeFile(file, '- [x] first\n- [x] second\n');
+    await expect(f.page.locator('.lens-progress-ring')).toHaveAttribute('data-percent', '100');
+    expect((await popup.boundingBox())!.x).toBe(moved!.x);
+    await handle.focus(); await handle.press('ArrowLeft');
+    expect((await popup.boundingBox())!.x).toBe(moved!.x - 10);
+    await f.page.setViewportSize({ width: 700, height: 550 });
+    await expect.poll(async () => { const box = (await popup.boundingBox())!; return box.x + box.width <= 700 && box.y + box.height <= 550; }).toBe(true);
+    await f.page.locator('.pane').evaluate((node, id) => node.setAttribute('data-thread-id', id), b);
+    await expect(f.page.locator('.lens-trigger')).toHaveAttribute('aria-expanded', 'false');
+    await expand(f.page); await expect(f.page.getByLabel('固定浮窗', { exact: true })).toHaveAttribute('aria-pressed', 'false');
+    await expect(f.page.getByText('first', { exact: true })).toHaveCount(0);
+    await f.bridge().close(); await expect(f.page.locator('[data-task-lens-host]')).toHaveCount(0);
+    expect(f.service.resources().subscribers).toBe(0);
   } finally { await f.close(); }
 });

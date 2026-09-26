@@ -42,3 +42,14 @@ button:disabled{opacity:.5;cursor:default}
 .lens-documents .lens-task-panel footer{display:none}
 .lens-documents .lens-document-meta p{line-height:1.4}
 .lens-documents .lens-task-group{margin-top:3px}
+.lens-progress-ring{flex:none;overflow:visible}
+.lens-ring-track{stroke:currentColor;opacity:.22}
+.lens-ring-value{stroke:currentColor;stroke-linecap:butt;transition:stroke-dasharray .15s ease}
+.lens-progress-ring[data-percent=unknown] .lens-ring-track{stroke-dasharray:2 2;opacity:.5}
+.lens-popover-header{cursor:grab;touch-action:none;user-select:none}
+.lens-popover-header button{display:inline-flex;align-items:center;justify-content:center;flex:none;cursor:pointer}
+.lens-popover-header [data-lens-move]{width:16px;cursor:grab}
+.lens-popover-header [data-lens-pin][aria-pressed=true]{color:var(--lens-text);background:var(--lens-soft)}
+.lens-popover-header [data-lens-pin][aria-pressed=true] svg{fill:var(--lens-border)}
+.lens-embedded-shell[data-dragging=true] .lens-popover-header,.lens-embedded-shell[data-dragging=true] [data-lens-move]{cursor:grabbing}
+@media(prefers-reduced-motion:reduce){.lens-ring-value{transition:none}}

@@ -21,3 +21,24 @@ export function findComposerToolbar(editor: Element, anchor: HTMLElement): HTMLE
   }
   return null;
 }
+
+/** Resolve only the current composer's column, not the sidebar or a sibling pane. */
+export function conversationBounds(editor: Element): { left: number; top: number; width: number; height: number } {
+  const doc = editor.ownerDocument, win = doc.defaultView!;
+  const viewport = win.visualViewport;
+  const left = viewport?.offsetLeft ?? 0, top = viewport?.offsetTop ?? 0;
+  const width = viewport?.width ?? win.innerWidth, height = viewport?.height ?? win.innerHeight;
+  const shell = editor.closest<HTMLElement>('[data-composer-root],[class*="_ComposerLayoutRoot_"],form');
+  const fallback = (shell ?? editor).getBoundingClientRect();
+  let column = { left: fallback.left, top, width: fallback.width, height };
+  for (let node = shell?.parentElement; node && node !== doc.body; node = node.parentElement) {
+    const box = node.getBoundingClientRect();
+    const editors = [...node.querySelectorAll('textarea,[contenteditable="true"][role="textbox"],[contenteditable="true"].ProseMirror')].filter(item => { const r = item.getBoundingClientRect(); return r.width > 0 && r.height > 0 && win.getComputedStyle(item).visibility !== 'hidden'; });
+    if (editors.length !== 1) break;
+    if (box.width >= fallback.width && box.height >= Math.min(320, height * .5)) {
+      column = { left: box.left, top: box.top, width: box.width, height: box.height }; break;
+    }
+  }
+  const x = Math.max(left, column.left), y = Math.max(top, column.top);
+  return { left: x, top: y, width: Math.max(0, Math.min(left + width, column.left + column.width) - x), height: Math.max(0, Math.min(top + height, column.top + column.height) - y) };
+}

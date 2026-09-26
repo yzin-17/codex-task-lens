@@ -10,9 +10,9 @@ it('validates bounded, distinct confirmation references and explicit picker cons
   expect(() => parseRequest({ ...base, operation: 'pickMarkdownFiles', params: {} })).toThrow();
 });
 it('separates no bindings, empty files, partial coverage and cached counts', () => {
-  expect(summarizeDocuments(null).label).toBe('任务');
+  expect(summarizeDocuments(null).label).toBe('进度');
   const view = { documents: [{ binding: {}, snapshot: { status: 'ready', cached: false, tasks: { completed: 2, total: 4 } } }, { binding: {}, snapshot: { status: 'missing', cached: false, tasks: null } }] } as unknown as ViewState;
-  expect(summarizeDocuments(view)).toMatchObject({ label: '任务 2/4', partial: true, warning: true, suffix: '部分' });
+  expect(summarizeDocuments(view)).toMatchObject({ label: '进度 2/4', partial: true, warning: true, suffix: '部分' });
   view.documents!.pop(); expect(summarizeDocuments(view)).toMatchObject({ warning: false, partial: false });
   view.documents![0]!.snapshot!.cached = true; expect(summarizeDocuments(view).suffix).toBe('缓存');
 });
