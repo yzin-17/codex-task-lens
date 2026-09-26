@@ -92,3 +92,11 @@ pnpm test:mac:acceptance -- --enable --interactive --cdp-port 9341
 - [I2 验收向导](docs/validation/task-lens-mvp/I2.md) · [验收工具测试](docs/validation/task-lens-mvp/I2-runner.md) · [R1 状态](docs/validation/task-lens-mvp/R1.md)
 
 - [工具栏浮窗与多文档修订台账](docs/tasks/toolbar-multidoc.md) · [修订验证](docs/validation/task-lens-mvp/toolbar-multidoc-2026-09-26.md)
+
+## 文档页的已选管理
+
+「文档」页顶部固定显示已选数量、前两个文件名和 +N；中间优先展示已授权范围内的候选，手动路径使用「单文件｜多文件｜目录」分段切换。「选择文件…」仍是原来的系统文件选择器，不新增目录混选。
+
+添加/预览后留在原位置，可连续添加。点击顶部「管理」、文件标签或 +N，在同一浮窗调整范围、移除文档和处理错误；章节支持搜索，返回保留添加区滚动位置。底部固定显示新增/移除/范围更改和确认操作。工具栏只统计已保存的绑定，取消不改原绑定。
+
+实现与验收见 [文档页修订记录](docs/validation/task-lens-mvp/document-manager-2026-09-27.md)。
