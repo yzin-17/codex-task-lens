@@ -22,6 +22,10 @@
 
 用户已明确允许调试启动。9341 回环、签名与进程归属通过，生产 runtime 已连接。修复 lsof 对同一 socket 的主进程／官方辅助进程双 PID 记录误判；当前 probe 仍未识别对话，尚未通过 T02／I2。后续应以 [实际 CDP 接入记录](../validation/task-lens-mvp/mac-cdp-2026-09-26.md) 为准，上一节“未开放端口”为历史预检结果。
 
+## 2026-09-26 当前对话识别已修复
+
+当前版本使用空 DIV `data-above-composer-conversation-id` 作为非视觉元数据，自身 `display:none` 不表示对话失活。已按实测结构修复：保留隐藏祖先／普通隐藏 ID／冲突与非法 ID 拒绝，仅允许专用空标记自身不渲染。真实 probe 与生产面板均已识别当前对话，入口可见且有绑定按钮；旧段落“未识别”为当时的历史状态。证据见 [隐藏标记修复](../validation/task-lens-mvp/mac-hidden-sentinel-2026-09-26.md)。完整 T02／I2／R1 仍未通过。
+
 ## 补录真实基线
 
 在已开放端口的 Mac 上构建后执行，不退出或重启 Codex：

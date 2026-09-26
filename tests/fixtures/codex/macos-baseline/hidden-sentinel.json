@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "observedOn": "2026-09-26",
+  "codexVersion": "26.924.22138",
+  "platform": "macOS 26.6.2 arm64",
+  "source": "Authorized read-only structural observation of the actual renderer; no text or IDs retained",
+  "marker": {
+    "attribute": "data-above-composer-conversation-id",
+    "tag": "DIV",
+    "childNodes": 0,
+    "display": "none",
+    "hidden": false,
+    "ariaHidden": false,
+    "identityShape": "canonical UUID"
+  },
+  "region": {
+    "display": "block",
+    "visibleEditors": 1,
+    "markerAncestorOfEditor": false
+  },
+  "editor": {
+    "tag": "DIV",
+    "contentEditable": true,
+    "role": "textbox",
+    "classToken": "ProseMirror"
+  },
+  "acceptanceComplete": false
+}
