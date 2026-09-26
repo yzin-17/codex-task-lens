@@ -1,0 +1,28 @@
+name: Lock desktop build tools
+on:
+  push:
+    branches: ['feat/desktop-release']
+    paths: ['tools/desktop/package.json', '.github/workflows/desktop-lock.yml']
+permissions:
+  contents: read
+jobs:
+  lock:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm install --package-lock-only --ignore-scripts --prefix tools/desktop
+      - name: Commit only the generated dependency lock
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tools/desktop/package-lock.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'build: lock desktop packaging dependencies'
+            git push origin HEAD:feat/desktop-release
+          fi
