@@ -40,19 +40,50 @@ export async function discoverApp(input?: string, run: Command = command): Promi
   for (const candidate of found.stdout.split('\n').filter(Boolean).slice(0, 16)) { try { return await inspectApp(candidate, run); } catch { /* No untrusted fallback. */ } }
   throw new LensError('missing', '未找到通过签名校验的 Codex；请用 --app 指定应用');
 }
-export function parseListeners(output: string, port: number): number {
-  validPort(port); const pids = new Set<number>(); let pid = 0, count = 0;
+type Listener = { pid: number; device: string; address: string };
+export function listenerRecords(output: string, port: number): Listener[] {
+  validPort(port); const rows: Listener[] = []; let pid = 0, device = '';
   for (const line of output.split('\n')) {
-    if (line.startsWith('p')) { pid = Number(line.slice(1)); if (!Number.isSafeInteger(pid) || pid <= 0) throw new LensError('permission_denied', '监听进程无效'); }
+    if (line.startsWith('p')) { pid = Number(line.slice(1)); device = ''; if (!Number.isSafeInteger(pid) || pid <= 0) throw new LensError('permission_denied', '监听进程无效'); }
+    if (line.startsWith('f')) device = '';
+    if (line.startsWith('d')) device = line.slice(1);
     if (line.startsWith('n')) {
       const address = line.slice(1);
       if (!pid || ![`127.0.0.1:${port}`, `[::1]:${port}`, `::1:${port}`].includes(address)) throw new LensError('permission_denied', 'CDP 监听地址不受信任（必须仅回环）');
-      pids.add(pid); count++;
+      rows.push({ pid, device, address });
     }
   }
-  if (!count) throw new LensError('missing', '没有 CDP 监听；运行中的 Codex 不会被自动重启');
+  if (!rows.length) throw new LensError('missing', '没有 CDP 监听；运行中的 Codex 不会被自动重启');
+  if (rows.length > 16) throw new LensError('permission_denied', '监听记录超限');
+  return rows;
+}
+export function parseListeners(output: string, port: number): number {
+  const pids = new Set(listenerRecords(output, port).map(row => row.pid));
   if (pids.size !== 1) throw new LensError('permission_denied', 'CDP 端口存在多个监听进程');
   return [...pids][0]!;
+}
+/** macOS can report the same inherited socket under Codex and its signed direct child. */
+async function listenerOwner(app: CodexApp, rows: Listener[], run: Command): Promise<number> {
+  const executables = new Map<number, string>();
+  for (const pid of new Set(rows.map(row => row.pid))) executables.set(pid, (await run('/bin/ps', ['-p', String(pid), '-o', 'comm='])).stdout.trim());
+  const owners = [...executables].filter(([, executable]) => executable === app.executable);
+  if (owners.length !== 1) throw new LensError('permission_denied', 'CDP 端口不属于唯一已验证的 Codex 主进程');
+  const pid = owners[0]![0];
+  if (executables.size > 1) {
+    const sockets = new Set(rows.filter(row => row.pid === pid).map(row => row.device));
+    if ([...sockets].some(value => !/^0x[0-9a-f]+$/i.test(value))) throw new LensError('permission_denied', '无法证明共享监听 socket');
+    const uid = (await run('/bin/ps', ['-p', String(pid), '-o', 'uid='])).stdout.trim();
+    if (!/^\d+$/.test(uid)) throw new LensError('permission_denied', '进程用户不可验证');
+    for (const [child, executable] of executables) {
+      if (child === pid) continue;
+      if (rows.filter(row => row.pid === child).some(row => !sockets.has(row.device))) throw new LensError('permission_denied', '辅助进程不是共享的监听 socket');
+      const parentUser = (await run('/bin/ps', ['-p', String(child), '-o', 'ppid=,uid='])).stdout.trim().split(/\s+/);
+      if (parentUser.length !== 2 || parentUser[0] !== String(pid) || parentUser[1] !== uid || path.basename(executable) !== 'SkyComputerUseService') throw new LensError('permission_denied', '监听辅助进程归属不可信');
+      await run('/usr/bin/codesign', ['--verify', '--strict', '--test-requirement', requirement + ' and identifier "com.openai.sky.CUAService"', executable]);
+    }
+  }
+  await run('/usr/bin/codesign', ['--verify', '--strict', '--test-requirement', requirement, app.executable]);
+  return pid;
 }
 export function isCodexTarget(value: unknown, port: number): value is CdpTarget {
   if (!value || typeof value !== 'object') return false;
@@ -82,15 +113,14 @@ export async function fetchTargetList(port: number): Promise<unknown[]> {
 }
 export async function verifyEndpoint(app: CodexApp, port: number, run: Command = command, list = fetchTargetList): Promise<TrustedEndpoint> {
   validPort(port);
-  const listeners = await run('/usr/sbin/lsof', ['-nP', '-a', `-iTCP:${port}`, '-sTCP:LISTEN', '-Fpn']).catch(() => ({ stdout: '', stderr: '' }));
-  const pid = parseListeners(listeners.stdout, port);
-  const executable = (await run('/bin/ps', ['-p', String(pid), '-o', 'comm='])).stdout.trim();
-  if (executable !== app.executable) throw new LensError('permission_denied', 'CDP 端口不属于已验证的 Codex 主进程');
-  await run('/usr/bin/codesign', ['--verify', '--strict', '--test-requirement', requirement, app.executable]);
+  const readListeners = async () => listenerRecords((await run('/usr/sbin/lsof', ['-nP', '-a', `-iTCP:${port}`, '-sTCP:LISTEN', '-Fpfnd']).catch(() => ({ stdout: '', stderr: '' }))).stdout, port);
+  const before = await readListeners();
+  const pid = await listenerOwner(app, before, run);
   const targets = (await list(port)).filter(value => isCodexTarget(value, port));
-  // Recheck ownership after HTTP discovery before returning the capability.
-  const again = parseListeners((await run('/usr/sbin/lsof', ['-nP', '-a', `-iTCP:${port}`, '-sTCP:LISTEN', '-Fpn'])).stdout, port);
-  if (again !== pid) throw new LensError('permission_denied', 'CDP 进程在检查中变化');
+  const after = await readListeners();
+  const fingerprint = (rows: Listener[]) => JSON.stringify(rows.map(row => `${row.pid}:${row.device}:${row.address}`).sort());
+  if (fingerprint(after) !== fingerprint(before)) throw new LensError('permission_denied', 'CDP 进程在检查中变化');
+  if (await listenerOwner(app, after, run) !== pid) throw new LensError('permission_denied', 'CDP 进程在检查中变化');
   return { port, pid, app, targets };
 }
 export async function launchCodex(app: CodexApp, port: number, consent: boolean, run: Command = command): Promise<void> {
