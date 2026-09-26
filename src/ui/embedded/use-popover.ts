@@ -31,7 +31,7 @@ export function usePopover({ popup, trigger }: Options) {
       if (event.key !== 'Escape' || event.isComposing || !node.matches(':popover-open')) return;
       const path = event.composedPath();
       // Native select owns Escape while its options are active; never eat typing keys.
-      if (path.some(item => item instanceof HTMLSelectElement)) return;
+      if (path.some(item => item instanceof HTMLSelectElement || (item instanceof Element && item.hasAttribute('data-lens-escape-scope')))) return;
       const inside = path.includes(node) || path.includes(button);
       if (pin.current && !inside) return;
       if (inside) { event.preventDefault(); event.stopPropagation(); }

@@ -53,3 +53,7 @@ button:disabled{opacity:.5;cursor:default}
 .lens-popover-header [data-lens-pin][aria-pressed=true] svg{fill:var(--lens-border)}
 .lens-embedded-shell[data-dragging=true] .lens-popover-header,.lens-embedded-shell[data-dragging=true] [data-lens-move]{cursor:grabbing}
 @media(prefers-reduced-motion:reduce){.lens-ring-value{transition:none}}
+
+.lens-manager-body{display:flex;flex-direction:column;padding:0;overflow:hidden;min-height:0}
+.lens-manager-body>.lens-document-manager{flex:1;min-height:0;max-height:none;width:100%}
+.lens-manager-body>.lens-popover-warning{flex:none;margin:6px 18px}

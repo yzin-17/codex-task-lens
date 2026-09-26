@@ -42,7 +42,7 @@ export function EmbeddedPanel({ client, initialGrantId, bounds = viewportBounds 
       </header>
       <div className="lens-popover-subhead"><span className="lens-thread-label">当前对话 · {client.monitor.kind === 'thread' ? client.monitor.threadId.slice(0, 8) : ''}</span><span>{pinned ? '已固定 · 可拖动' : '本地只读'}</span></div>
       <nav className="lens-tabs" aria-label="任务视图"><button type="button" aria-pressed={tab === 'tasks'} onClick={() => setTab('tasks')}>清单</button><button type="button" aria-pressed={tab === 'documents'} disabled={!view || !!connection} onClick={() => setTab('documents')}>文档{documents.length ? ` ${documents.length}` : ''}</button></nav>
-      <div className="lens-embedded-body">
+      <div className={tab === 'documents' ? 'lens-embedded-body lens-manager-body' : 'lens-embedded-body'}>
         {connection && <p className="lens-popover-warning" role="status">{connection}；当前计数可能为缓存。</p>}
         {message && <p role="alert" className="lens-popover-warning">{message}</p>}
         {tab === 'tasks' && open && <>{documents.length ? <DocumentSetPanel view={view} transportMessage={connection} onOpenSource={(id, line) => { void openSource(id, line); }} /> : <div className="lens-empty-binding"><span className="lens-empty-icon" aria-hidden="true">☷</span><strong>{view ? '添加你的任务文档' : '正在连接任务服务…'}</strong><p>绑定一份或多份 Markdown，随时查看已完成和未完成项。</p><button type="button" disabled={!view || !!connection} onClick={() => setTab('documents')}>绑定 Task 文档</button></div>}</>}

@@ -244,7 +244,7 @@ test('multiple Markdown previews commit together and the closed trigger keeps up
     await expand(f.page); await f.page.getByRole('button', { name: '绑定 Task 文档', exact: true }).click();
     await f.page.getByLabel('本地绝对路径', { exact: true }).fill(`${one}\n${two}`);
     await f.page.getByRole('checkbox').check(); await f.page.getByRole('button', { name: '授权并预览', exact: true }).click();
-    await expect(f.page.locator('.lens-draft-files li')).toHaveCount(2);
+    await expect(f.page.getByLabel('已选摘要', { exact: true })).toContainText('已选 2 份');
     await f.page.getByRole('button', { name: '确认绑定', exact: true }).click();
     await expect(f.page.locator('.lens-trigger')).toContainText('进度 2/4');
     await expect(f.page.locator('.lens-file-section')).toHaveCount(2);
@@ -254,10 +254,12 @@ test('multiple Markdown previews commit together and the closed trigger keeps up
     await expect(f.page.locator('.lens-trigger')).toContainText('进度 3/4');
     await expect(f.page.getByRole('dialog')).not.toBeVisible();
     await expand(f.page); await f.page.getByRole('button', { name: '管理文档', exact: true }).click();
+    await f.page.getByRole('button', { name: '管理已选文档', exact: true }).click();
     await f.page.getByLabel('移除 multi-b.md', { exact: true }).click();
     await f.page.getByRole('button', { name: '取消', exact: true }).click();
     await expect(f.page.locator('.lens-trigger')).toContainText('进度 3/4');
     await f.page.getByRole('button', { name: '管理文档', exact: true }).click();
+    await f.page.getByRole('button', { name: '管理已选文档', exact: true }).click();
     await f.page.getByLabel('移除 multi-b.md', { exact: true }).click();
     await f.page.getByRole('button', { name: '确认更改', exact: true }).click();
     await expect(f.page.locator('.lens-trigger')).toContainText('进度 2/2');
@@ -286,10 +288,10 @@ test('mouse focus and typing remain inside Task Lens despite composer mouse hand
     await paths.pressSequentially('/fixture/one.md'); await paths.press('Enter'); await paths.pressSequentially('/fixture/two.md');
     await expect(paths).toHaveValue('/fixture/one.md\n/fixture/two.md');
     await expect(f.page.getByLabel('输入', { exact: true })).toHaveValue('');
-    const type = f.page.getByLabel('路径类型', { exact: true });
-    await type.click(); await expect(type).toBeFocused(); await f.page.keyboard.press('Escape');
+    const type = f.page.getByRole('radio', { name: '多文件', exact: true });
+    await type.click(); await expect(type).toBeFocused(); await type.press('ArrowLeft');
     await expect(f.page.getByRole('dialog', { name: '任务清单', exact: true })).toBeVisible();
-    await type.selectOption('file'); await paths.click(); await expect(paths).toBeFocused();
+    await expect(f.page.getByRole('radio', { name: '单文件', exact: true })).toHaveAttribute('aria-checked', 'true'); await paths.click(); await expect(paths).toBeFocused();
     await paths.pressSequentially('/fixture/single.md'); await expect(paths).toHaveValue('/fixture/single.md');
     await f.page.getByRole('checkbox').click(); await expect(f.page.getByRole('checkbox')).toBeChecked();
     await f.page.getByLabel('关闭任务清单', { exact: true }).click();
@@ -349,5 +351,80 @@ test('drag clamps to the conversation, persists on updates and resets on thread 
     await expect(f.page.getByText('first', { exact: true })).toHaveCount(0);
     await f.bridge().close(); await expect(f.page.locator('[data-task-lens-host]')).toHaveCount(0);
     expect(f.service.resources().subscribers).toBe(0);
+  } finally { await f.close(); }
+});
+
+test('candidate-first document manager keeps selected summary and confirmation visible while scrolling', async () => {
+  const f = await fixture(true); try {
+    for (let i = 0; i < 24; i++) await writeFile(path.join(f.workspace, `docs/tasks/${String(i).padStart(2, '0')}.md`), `# Candidate${i}\n- [ ] pending\n- [x] done\n`);
+    await expand(f.page); await f.page.getByRole('button', { name: '绑定 Task 文档', exact: true }).click();
+    const summary = f.page.getByLabel('已选摘要', { exact: true }), scroll = f.page.locator('.lens-manager-scroll'), footer = f.page.locator('.lens-manager-footer');
+    const initialScroll = await scroll.evaluate(node => node.scrollTop);
+    for (let i = 0; i < 3; i++) {
+      await f.page.getByRole('button', { name: new RegExp(`^添加 Candidate${i} 来源`) }).click();
+      await expect(summary).toContainText(`已选 ${i + 1} 份`);
+      await expect(f.page.getByRole('button', { name: new RegExp(`^已选 Candidate${i} 来源`) })).toBeDisabled();
+    }
+    expect(await scroll.evaluate(node => node.scrollTop)).toBe(initialScroll);
+    await expect(summary.locator('button').filter({ hasText: '+1' })).toBeVisible();
+    await expect(f.page.locator('.lens-trigger')).toHaveText('进度');
+    const top = await summary.boundingBox(), bottom = await footer.boundingBox();
+    await scroll.evaluate(node => { node.scrollTop = node.scrollHeight; });
+    const savedScroll = await scroll.evaluate(node => node.scrollTop);
+    expect(savedScroll).toBeGreaterThan(0);
+    expect(await summary.boundingBox()).toEqual(top); expect(await footer.boundingBox()).toEqual(bottom);
+    const popup = (await f.page.locator('.lens-embedded-shell').boundingBox())!;
+    expect(bottom!.y + bottom!.height).toBeLessThanOrEqual(popup.y + popup.height);
+    await f.page.getByRole('button', { name: '查看其余 1 份文档', exact: true }).click();
+    await expect(f.page.locator('.lens-draft-files>li')).toHaveCount(3);
+    await expect(f.page.locator('.lens-draft-files>li').nth(2)).toBeFocused();
+    await f.page.getByRole('button', { name: '返回添加文档', exact: true }).click();
+    expect(await scroll.evaluate(node => node.scrollTop)).toBe(savedScroll);
+    await f.page.getByRole('button', { name: '确认绑定', exact: true }).click();
+    await expect(f.page.locator('.lens-trigger')).toHaveText('进度 3/6');
+  } finally { await f.close(); }
+});
+
+test('bound scopes use a searchable short-label list; Escape closes only the inner list and changes remain a draft', async () => {
+  const f = await fixture(); try {
+    const file = path.join(f.root, 'long-scope.md');
+    await writeFile(file, '# ' + '很长的文档总标题'.repeat(12) + '\n\n## 接口验证\n- [x] checked\n\n## 其他范围\n- [ ] pending\n');
+    await expand(f.page); await bind(f.page, file); await expect(f.page.locator('.lens-trigger')).toHaveText('进度 1/2');
+    await f.page.getByRole('button', { name: '管理文档', exact: true }).click();
+    await f.page.getByRole('button', { name: '管理已选文档', exact: true }).click();
+    const scope = f.page.getByRole('button', { name: '计数范围 long-scope.md', exact: true });
+    await expect(f.page.locator('.lens-document-manager select')).toHaveCount(0);
+    await scope.click(); const search = f.page.getByRole('combobox');
+    await search.fill('接口'); await expect(f.page.getByRole('option')).toHaveCount(1);
+    await search.press('Escape'); await expect(f.page.getByRole('listbox')).toHaveCount(0);
+    await expect(f.page.getByRole('dialog', { name: '任务清单', exact: true })).toBeVisible(); await expect(scope).toBeFocused();
+    await scope.click(); await search.fill('接口'); await search.press('Enter');
+    await expect(scope).toHaveText('接口验证');
+    await expect(f.page.locator('.lens-change-summary')).toContainText('范围更改 1 份');
+    await expect(f.page.locator('.lens-trigger')).toHaveText('进度 1/2');
+    expect(await f.page.locator('.lens-document-manager').evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true);
+    await f.page.getByRole('button', { name: '确认更改', exact: true }).click();
+    await expect(f.page.locator('.lens-trigger')).toHaveText('进度 1/1');
+  } finally { await f.close(); }
+});
+
+test('failed additions are visible in the top summary and cancellation preserves saved progress', async () => {
+  const f = await fixture(); try {
+    const file = path.join(f.root, 'retained.md'), missing = path.join(f.root, 'missing.md'); await writeFile(file, '- [ ] pending\n- [x] done\n');
+    await expand(f.page); await bind(f.page, file);
+    await expect(f.page.locator('.lens-trigger')).toHaveText('进度 1/2');
+    await f.page.getByRole('button', { name: '管理文档', exact: true }).click();
+    await f.page.getByLabel('本地绝对路径', { exact: true }).fill(missing); await f.page.getByRole('checkbox').check();
+    await f.page.getByRole('button', { name: '授权并预览', exact: true }).click();
+    const errors = f.page.getByRole('button', { name: '1 份需处理', exact: true }); await expect(errors).toBeVisible();
+    await expect(f.page.getByRole('button', { name: '确认更改', exact: true })).toBeDisabled();
+    await errors.click(); await expect(f.page.locator('.lens-draft-files>li').last()).toBeFocused();
+    await expect(f.page.locator('.lens-draft-files').getByRole('alert')).toBeVisible();
+    await f.page.getByRole('button', { name: '移除 missing.md', exact: true }).click();
+    await expect(f.page.getByLabel('已选摘要', { exact: true })).toContainText('已选 1 份');
+    await expect(f.page.getByRole('button', { name: '确认更改', exact: true })).toBeDisabled();
+    await f.page.getByRole('button', { name: '取消', exact: true }).click();
+    await expect(f.page.locator('.lens-trigger')).toHaveText('进度 1/2');
+    expect(await readFile(file, 'utf8')).toBe('- [ ] pending\n- [x] done\n');
   } finally { await f.close(); }
 });
