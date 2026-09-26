@@ -1,3 +1,4 @@
+import { findComposerToolbar } from './toolbar.js';
 export const THREAD_ATTRIBUTES = ['data-above-composer-conversation-id', 'data-conversation-id', 'data-thread-id'] as const;
 const identitySelector = THREAD_ATTRIBUTES.map(name => `[${name}]`).join(',');
 const editorSelector = 'textarea,[contenteditable="true"][role="textbox"],[contenteditable="true"].ProseMirror';
@@ -26,7 +27,7 @@ function activeMarker(node: Element, region: Element): boolean {
   }
   return false;
 }
-export type PaneSelection = { paneId: string; generation: number; threadId: string | null; anchor: HTMLElement; editor: Element };
+export type PaneSelection = { paneId: string; generation: number; threadId: string | null; anchor: HTMLElement; toolbar: HTMLElement | null; editor: Element };
 /** Never uses sidebar titles, last DOM element, activity timestamps or React internals. */
 export function createDomAdapter(doc: Document) {
   let nextPane = 0, active = new Set<Element>();
@@ -58,7 +59,7 @@ export function createDomAdapter(doc: Document) {
         const entry = previous ?? { paneId: `pane-${++nextPane}`, generation: 0, threadId, anchor };
         if (previous && (!active.has(editor) || previous.threadId !== threadId || previous.anchor !== anchor)) entry.generation++;
         entry.threadId = threadId; entry.anchor = anchor; identities.set(editor, entry); used.add(region); nextActive.add(editor);
-        selected.push({ ...entry, editor });
+        selected.push({ ...entry, toolbar: findComposerToolbar(editor, anchor), editor });
       }
       active = nextActive;
       return selected;

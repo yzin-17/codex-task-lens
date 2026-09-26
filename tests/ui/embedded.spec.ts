@@ -61,7 +61,7 @@ test('real CDP + shared service + React: bind, watch atomic saves and isolate A�
 test('conflicting identities never display another task; controls and uninstall remain intact', async () => {
   const f = await fixture(); try {
     await f.page.locator('.pane').evaluate((element, id) => element.setAttribute('data-conversation-id', id), b);
-    await expect(f.page.getByText('未识别到当前对话；未显示其他对话的任务')).toBeVisible();
+    await expect(f.page.getByText('任务 · 未识别')).toBeVisible();
     await f.page.getByLabel('输入', { exact: true }).fill('untouched input'); await f.page.locator('#send').click(); await f.page.locator('#approve').click();
     await expect(f.page.locator('body')).toHaveAttribute('data-sent', 'yes'); await expect(f.page.locator('body')).toHaveAttribute('data-approved', 'yes');
     await f.bridge().close(); await expect(f.page.locator('[data-task-lens-host]')).toHaveCount(0);
@@ -70,7 +70,7 @@ test('conflicting identities never display another task; controls and uninstall 
 });
 test('separate panes, page reload and repeated remounts release all tool roots', async () => {
   test.setTimeout(60000); const f = await fixture(); try {
-    await f.page.locator('main').evaluate((element, id) => { const region = document.createElement('section'); region.className = 'pane'; region.setAttribute('data-thread-id', id); region.innerHTML = '<div data-composer-root><textarea aria-label="second"></textarea></div>'; element.append(region); }, b);
+    await f.page.locator('main').evaluate((element, id) => { const region = document.createElement('section'); region.className = 'pane'; region.setAttribute('data-thread-id', id); region.innerHTML = '<div data-composer-root><textarea aria-label="second"></textarea><div data-composer-toolbar><button>操作</button></div></div>'; element.append(region); }, b);
     await expect(f.page.locator('[data-task-lens-host]')).toHaveCount(2);
     await f.page.reload(); await expect.poll(() => f.bridge().isClosed).toBe(true); await f.reattach();
     await expect(f.page.locator('[data-task-lens-host]')).toHaveCount(1);
@@ -99,7 +99,7 @@ test('automatically discovers within an explicitly authorized workspace and supp
     await f.page.getByRole('button', { name: '确认绑定', exact: true }).click();
     await expect(f.page.getByText('task from workspace', { exact: true })).toBeVisible();
     await f.page.locator('[data-above-composer-conversation-id]').evaluate(element => element.remove());
-    await expect(f.page.getByText('未识别到当前对话；未显示其他对话的任务')).toBeVisible();
+    await expect(f.page.getByText('任务 · 未识别')).toBeVisible();
     await expect(f.page.getByText('task from workspace', { exact: true })).toHaveCount(0);
   } finally { await f.close(); }
 });
@@ -121,7 +121,7 @@ async function hiddenSentinelLayout(page: Page) {
     for (let i = 0; i < 6; i++) {
       const wrapper = document.createElement('div'); wrapper.append(interior); interior = wrapper;
     }
-    const shell = document.createElement('div'); shell.className = '_ComposerLayoutRoot_fixture'; shell.append(interior);
+    const shell = document.createElement('div'); shell.className = '_ComposerLayoutRoot_fixture'; shell.append(interior); const toolbar = document.createElement('div'); toolbar.setAttribute('data-composer-toolbar', ''); toolbar.innerHTML = '<button>操作</button>'; shell.append(toolbar);
     let outer = shell;
     for (let i = 0; i < 2; i++) { const wrapper = document.createElement('div'); wrapper.append(outer); outer = wrapper; }
     pane.replaceChildren(marker, outer);
@@ -141,7 +141,7 @@ test('hidden composer metadata identifies the real pane and restores A→B→A b
     await marker.evaluate((element, id) => element.setAttribute('data-above-composer-conversation-id', id), b);
     await expect(f.page.locator('.lens-thread-label')).toContainText(b.slice(0, 8));
     await expect(f.page.getByText('metadata task', { exact: true })).toHaveCount(0);
-    await expect(f.page.locator('.lens-embedded-shell>summary')).toContainText('尚未绑定');
+    await expect(f.page.locator('.lens-trigger')).toHaveText('任务');
     await marker.evaluate((element, id) => element.setAttribute('data-above-composer-conversation-id', id), a);
     await expect(f.page.locator('.lens-thread-label')).toContainText(a.slice(0, 8)); await expand(f.page);
     await expect(f.page.getByText('metadata task', { exact: true })).toBeVisible();
@@ -207,7 +207,7 @@ test('separate visible composers use their own hidden sentinel, never a global f
       marker.setAttribute('data-above-composer-conversation-id', id);
       const shell = document.createElement('div'); shell.setAttribute('data-composer-root', '');
       const editor = document.createElement('textarea'); editor.setAttribute('aria-label', 'second');
-      shell.append(editor); pane.append(marker, shell); main.append(pane);
+      shell.append(editor); const toolbar = document.createElement('div'); toolbar.setAttribute('data-composer-toolbar', ''); toolbar.innerHTML = '<button>操作</button>'; shell.append(toolbar); pane.append(marker, shell); main.append(pane);
     }, b);
     await expect(f.page.locator('[data-task-lens-host]')).toHaveCount(2);
     await expect(f.page.locator('.lens-thread-label')).toHaveText([`当前对话 · ${a.slice(0, 8)}`, `当前对话 · ${b.slice(0, 8)}`]);
@@ -215,5 +215,57 @@ test('separate visible composers use their own hidden sentinel, never a global f
     await expect(f.page.locator('[data-task-lens-host]')).toHaveCount(1);
     await expect(f.page.locator('.lens-thread-label')).toContainText(b.slice(0, 8));
     await f.bridge().close(); expect(f.service.resources().subscribers).toBe(0);
+  } finally { await f.close(); }
+});
+
+test('toolbar entry opens a top-layer popover without moving the composer; outside and Escape close it', async () => {
+  const f = await fixture(); try {
+    const entry = f.page.getByLabel('展开任务清单', { exact: true });
+    await expect(f.page.locator('[data-composer-toolbar] [data-task-lens-host]')).toHaveCount(1);
+    const before = await f.page.getByLabel('输入', { exact: true }).boundingBox();
+    await entry.click(); await expect(f.page.getByRole('dialog', { name: '任务清单', exact: true })).toBeVisible();
+    const box = await f.page.locator('.lens-embedded-shell').boundingBox(), viewport = f.page.viewportSize()!;
+    expect(box!.x).toBeGreaterThanOrEqual(0); expect(box!.y).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width); expect(box!.y + box!.height).toBeLessThanOrEqual(viewport.height);
+    expect(await f.page.getByLabel('输入', { exact: true }).boundingBox()).toEqual(before);
+    await f.page.keyboard.press('Escape'); await expect(entry).toHaveAttribute('aria-expanded', 'false'); await expect(entry).toBeFocused();
+    await entry.click(); await f.page.getByLabel('输入', { exact: true }).click();
+    await expect(entry).toHaveAttribute('aria-expanded', 'false');
+    await expect(f.page.getByLabel('输入', { exact: true })).toBeFocused();
+  } finally { await f.close(); }
+});
+test('multiple Markdown previews commit together and the closed trigger keeps updating', async () => {
+  const f = await fixture(); try {
+    const one = path.join(f.root, 'multi-a.md'), two = path.join(f.root, 'multi-b.md');
+    await writeFile(one, '- [ ] alpha\n- [x] done\n'); await writeFile(two, '- [ ] beta\n- [x] done\n');
+    await expand(f.page); await f.page.getByRole('button', { name: '绑定 Task 文档', exact: true }).click();
+    await f.page.getByLabel('本地绝对路径', { exact: true }).fill(`${one}\n${two}`);
+    await f.page.getByRole('checkbox').check(); await f.page.getByRole('button', { name: '授权并预览', exact: true }).click();
+    await expect(f.page.locator('.lens-draft-files li')).toHaveCount(2);
+    await f.page.getByRole('button', { name: '确认绑定', exact: true }).click();
+    await expect(f.page.locator('.lens-trigger')).toContainText('任务 2/4');
+    await expect(f.page.locator('.lens-file-section')).toHaveCount(2);
+    await expect(f.page.locator('.lens-task-group h3>button[aria-expanded=true]')).toHaveCount(4);
+    await f.page.getByLabel('关闭任务清单', { exact: true }).click();
+    await writeFile(one, '- [x] alpha\n- [x] done\n');
+    await expect(f.page.locator('.lens-trigger')).toContainText('任务 3/4');
+    await expect(f.page.getByRole('dialog')).not.toBeVisible();
+    await expand(f.page); await f.page.getByRole('button', { name: '管理文档', exact: true }).click();
+    await f.page.getByLabel('移除 multi-b.md', { exact: true }).click();
+    await f.page.getByRole('button', { name: '取消', exact: true }).click();
+    await expect(f.page.locator('.lens-trigger')).toContainText('任务 3/4');
+    await f.page.getByRole('button', { name: '管理文档', exact: true }).click();
+    await f.page.getByLabel('移除 multi-b.md', { exact: true }).click();
+    await f.page.getByRole('button', { name: '确认更改', exact: true }).click();
+    await expect(f.page.locator('.lens-trigger')).toContainText('任务 2/2');
+    await f.reattach(); await expect(f.page.locator('.lens-trigger')).toContainText('任务 2/2');
+    expect(await readFile(two, 'utf8')).toBe('- [ ] beta\n- [x] done\n');
+  } finally { await f.close(); }
+});
+test('a missing toolbar is not replaced by arbitrary page insertion', async () => {
+  const f = await fixture(); try {
+    await f.page.locator('[data-composer-toolbar]').evaluate(node => node.remove());
+    await expect(f.page.locator('[data-task-lens-host]')).toHaveCount(0);
+    await expect(f.page.getByLabel('输入', { exact: true })).toBeVisible();
   } finally { await f.close(); }
 });

@@ -16,23 +16,23 @@ export function install(config: EmbeddedConfiguration): void {
   const remove = (entry: Entry) => { entry.client?.close(); entry.root.unmount(); entry.stopEvents(); entry.host.remove(); };
   const refresh = (): PaneIdentity[] => {
     if (disposed) return [];
-    const selections = adapter.scan(); const ids = new Set(selections.map(item => item.paneId));
+    const selections = adapter.scan().filter(selection => !!selection.toolbar); const ids = new Set(selections.map(item => item.paneId));
     for (const [id, entry] of entries) if (!ids.has(id)) { remove(entry); entries.delete(id); }
     for (const selection of selections) {
       const old = entries.get(selection.paneId);
-      if (old && old.selection.generation === selection.generation && old.selection.threadId === selection.threadId && old.host.isConnected && old.selection.anchor === selection.anchor) continue;
+      if (old && old.selection.generation === selection.generation && old.selection.threadId === selection.threadId && old.host.isConnected && old.selection.anchor === selection.anchor && old.host.parentElement === selection.toolbar) continue;
       if (old) remove(old);
       const host = document.createElement('div'); host.dataset.taskLensHost = selection.paneId;
       const shadow = host.attachShadow({ mode: 'open' }), style = document.createElement('style'), mount = document.createElement('div');
-      style.textContent = config.styles; shadow.append(style, mount); selection.anchor.insertAdjacentElement('afterend', host);
+      style.textContent = config.styles; shadow.append(style, mount); selection.toolbar!.append(host);
       const eventTypes = ['keydown', 'keyup', 'keypress', 'input', 'click', 'submit']; const stop = (event: Event) => event.stopPropagation(); for (const type of eventTypes) host.addEventListener(type, stop);
       const client = selection.threadId ? new EmbeddedClient(config, selection, payload => binding(payload)) : null;
-      const root = createRoot(mount); root.render(client ? createElement(EmbeddedPanel, { client, initialGrantId: config.initialGrantId }) : createElement('p', { className: 'lens-unknown' }, '未识别到当前对话；未显示其他对话的任务'));
+      const root = createRoot(mount); root.render(client ? createElement(EmbeddedPanel, { client, initialGrantId: config.initialGrantId }) : createElement('button', { className: 'lens-trigger lens-unknown', type: 'button', disabled: true, title: '未识别到当前对话；未显示其他对话的任务' }, '任务 · 未识别'));
       entries.set(selection.paneId, { host, root, selection, client, stopEvents: () => { for (const type of eventTypes) host.removeEventListener(type, stop); } });
     }
     const dark = document.documentElement.classList.contains('dark') || document.documentElement.dataset.theme === 'dark' || getComputedStyle(document.documentElement).colorScheme === 'dark';
     for (const entry of entries.values()) {
-      const theme = dark ? 'dark' : 'auto';
+      const theme = dark ? 'dark' : 'light';
       // Avoid observing our own identical attribute writes forever.
       if (entry.host.dataset.theme !== theme) entry.host.dataset.theme = theme;
       entry.client?.setOnline(Date.now() - heartbeat < 5000);
@@ -40,7 +40,7 @@ export function install(config: EmbeddedConfiguration): void {
     return selections.map(({ paneId, generation, threadId }) => ({ paneId, generation, threadId }));
   };
   const observer = new MutationObserver(() => { if (!queued) { queued = true; queueMicrotask(() => { queued = false; refresh(); }); } });
-  observer.observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: [...THREAD_ATTRIBUTES, 'hidden', 'class', 'data-theme', 'style'] });
+  observer.observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: [...THREAD_ATTRIBUTES, 'hidden', 'class', 'data-theme', 'style', 'aria-label'] });
   const timer = setInterval(refresh, 1000);
   instance = {
     inspect: () => { heartbeat = Date.now(); return refresh(); },

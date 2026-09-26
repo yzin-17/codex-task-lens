@@ -41,6 +41,7 @@ test('the acceptance helpers measure a real panel through an independent CDP rea
     await waitUntil(observe, value => value.ready && value.total === 2, signal);
     expect((await observe()).groupsExpanded).toBe(true);
     await page.getByLabel('输入', { exact: true }).fill('preserved draft');
+    await observer.expand(monitor.threadId);
     await exerciseFileLifecycle(file, observe, signal);
     const samples = await measureVisibleUpdates(file, observe, signal);
     expect(samples).toHaveLength(20); expect(samples.every(value => Number.isFinite(value) && value >= 0)).toBe(true);

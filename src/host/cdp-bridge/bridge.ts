@@ -1,3 +1,4 @@
+import { selectMarkdownFiles } from '../../platform/macos/select-markdown.js';
 import { randomBytes } from 'node:crypto';
 import { LensError, monitorKey, type MonitorRef, type Request } from '../../contracts/index.js';
 import { parsePanes, parseEmbeddedRequest, type EmbeddedConfiguration, type EmbeddedEvent, type PaneIdentity } from '../../contracts/embedded.js';
@@ -84,10 +85,12 @@ export class CdpBridge {
       case 'authorize': return this.service.authorize(request.params.path, request.params.kind);
       case 'listCandidates': return this.service.candidates(monitor, request.params.grantId, request.params.patterns);
       case 'previewDocument': return this.service.preview(monitor, generation, request.params.grantId, request.params.path, request.params.scope);
+      case 'pickMarkdownFiles': return selectMarkdownFiles();
+      case 'confirmBindings': return this.service.confirmMany(monitor, generation, request.params.previewIds, request.params.keepBindingIds, request.params.expectedBindingVersion);
       case 'confirmBinding': return this.service.confirm(monitor, generation, request.params.previewId, request.params.expectedBindingVersion);
       case 'clearBinding': return this.service.clear(monitor, generation, request.params.expectedBindingVersion);
       case 'getSnapshot': return this.service.snapshot(monitor, generation);
-      case 'openSource': return this.service.openSource(monitor, request.params.expectedBindingVersion, request.params.line, this.options.openFile ?? openSourceFile);
+      case 'openSource': return this.service.openSource(monitor, request.params.expectedBindingVersion, request.params.line, this.options.openFile ?? openSourceFile, request.params.bindingId);
       default: return Promise.reject(new LensError('permission_denied', '内嵌界面不能枚举其他会话或自建订阅'));
     }
   }

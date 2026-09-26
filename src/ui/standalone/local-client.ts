@@ -26,7 +26,7 @@ export class LocalClient implements LensClient {
   }
   async call<K extends Operation>(operation: K, params: Params[K], signal?: AbortSignal): Promise<Results[K]> {
     const request = this.request(operation, params);
-    const response = await fetch(`${this.origin}/api/rpc`, { method: 'POST', headers: this.headers(), body: JSON.stringify(request), signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(15000)]) : AbortSignal.timeout(15000), cache: 'no-store', credentials: 'omit' });
+    const response = await fetch(`${this.origin}/api/rpc`, { method: 'POST', headers: this.headers(), body: JSON.stringify(request), signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(operation === 'pickMarkdownFiles' ? 125000 : 15000)]) : AbortSignal.timeout(operation === 'pickMarkdownFiles' ? 125000 : 15000), cache: 'no-store', credentials: 'omit' });
     return this.result<Results[K]>(await response.json(), request.requestId);
   }
   async watch(onView: (view: ViewState) => void, onConnection: (message: string | undefined) => void, signal: AbortSignal): Promise<void> {

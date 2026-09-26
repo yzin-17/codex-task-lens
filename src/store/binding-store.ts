@@ -1,39 +1,43 @@
 import { chmod, lstat, mkdir, open, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { LensError, integer, monitorKey, object, parseMonitor, parseScope, text, type Binding, type Grant, type MonitorRef, type MonitorSummary, type TaskScope } from '../contracts/index.js';
+import { LensError, MAX_DOCUMENTS, bindingsOf, integer, monitorKey, object, parseMonitor, parseScope, text, type Binding, type Grant, type MonitorRef, type MonitorSummary, type TaskScope } from '../contracts/index.js';
 import { authorizedPath, createGrant } from '../files/path-policy.js';
-type State = { schemaVersion: 1; grants: Grant[]; monitors: MonitorSummary[] };
+type State = { schemaVersion: 2; grants: Grant[]; monitors: MonitorSummary[] };
 const clone = <T>(value: T): T => structuredClone(value);
 const alive = (pid: number): boolean => { try { process.kill(pid, 0); return true; } catch (error) { return (error as NodeJS.ErrnoException).code !== 'ESRCH'; } };
 function absolute(value: unknown): string { const p = text(value); if (!path.isAbsolute(p)) throw new Error('invalid path'); return p; }
 function decodeState(raw: string): State {
   try {
     const v = object(JSON.parse(raw), ['schemaVersion','grants','monitors']);
-    if (v.schemaVersion !== 1 || !Array.isArray(v.grants) || !Array.isArray(v.monitors)) throw new Error('schema');
+    if ((v.schemaVersion !== 1 && v.schemaVersion !== 2) || !Array.isArray(v.grants) || !Array.isArray(v.monitors)) throw new Error('schema');
     const grants: Grant[] = v.grants.map(value => {
       const g = object(value, ['id','kind','realPath','displayPath']);
       if (g.kind !== 'file' && g.kind !== 'directory') throw new Error('kind');
       return { id: text(g.id,128), kind:g.kind, realPath:absolute(g.realPath), displayPath:absolute(g.displayPath) };
     });
     const monitors: MonitorSummary[] = v.monitors.map(value => {
-      const row = object(value,['monitor','bindingVersion','binding']);
+      const row = object(value, ['monitor', 'bindingVersion', 'binding', 'bindings']);
       const monitor = parseMonitor(row.monitor), bindingVersion = integer(row.bindingVersion);
-      let binding: Binding | null = null;
-      if (row.binding !== null) {
-        const b = object(row.binding,['id','monitor','grantId','documentRealPath','displayPath','workspaceRealPath','scope','version','confirmedAt']);
-        binding = { id:text(b.id,128), monitor:parseMonitor(b.monitor), grantId:text(b.grantId,128), documentRealPath:absolute(b.documentRealPath), displayPath:absolute(b.displayPath), workspaceRealPath:b.workspaceRealPath === null ? null : absolute(b.workspaceRealPath), scope:parseScope(b.scope), version:integer(b.version,1), confirmedAt:integer(b.confirmedAt) };
-        if (binding.version !== bindingVersion || monitorKey(binding.monitor) !== monitorKey(monitor) || !grants.some(g=>g.id===binding!.grantId)) throw new Error('binding');
-      }
-      return { monitor, bindingVersion, binding };
+      const values = v.schemaVersion === 1 ? (row.binding === null ? [] : [row.binding]) : row.bindings;
+      if (!Array.isArray(values) || values.length > MAX_DOCUMENTS) throw new Error('set');
+      const bindings: Binding[] = values.map(value => {
+        const b = object(value, ['id','monitor','grantId','documentRealPath','displayPath','workspaceRealPath','scope','version','confirmedAt']);
+        const binding: Binding = { id:text(b.id,128), monitor:parseMonitor(b.monitor), grantId:text(b.grantId,128), documentRealPath:absolute(b.documentRealPath), displayPath:absolute(b.displayPath), workspaceRealPath:b.workspaceRealPath === null ? null : absolute(b.workspaceRealPath), scope:parseScope(b.scope), version:integer(b.version,1), confirmedAt:integer(b.confirmedAt) };
+        if (binding.version !== bindingVersion || monitorKey(binding.monitor) !== monitorKey(monitor) || !grants.some(g=>g.id===binding.grantId)) throw new Error('binding');
+        return binding;
+      });
+      if (new Set(bindings.map(b=>b.id)).size!==bindings.length || new Set(bindings.map(b=>b.documentRealPath)).size!==bindings.length) throw new Error('duplicate file');
+      if (v.schemaVersion === 2 && JSON.stringify(row.binding) !== JSON.stringify(values[0] ?? null)) throw new Error('alias');
+      return { monitor, bindingVersion, binding: bindings[0] ?? null, bindings };
     });
     if (new Set(grants.map(g=>g.id)).size!==grants.length || new Set(monitors.map(m=>monitorKey(m.monitor))).size!==monitors.length) throw new Error('duplicate');
-    return {schemaVersion:1,grants,monitors};
+    return {schemaVersion:2,grants,monitors};
   } catch { throw new LensError('corrupt_state','绑定存储损坏或版本不支持；已保留原文件，请备份后恢复'); }
 }
 export class BindingStore {
   readonly directory: string;
-  private state: State = {schemaVersion:1,grants:[],monitors:[]};
+  private state: State = {schemaVersion:2,grants:[],monitors:[]};
   private token = randomUUID();
   private closed = false;
   private tail: Promise<void> = Promise.resolve();
@@ -81,7 +85,7 @@ export class BindingStore {
     }
     throw new LensError('already_running','无法取得独占写入锁');
   }
-  get(ref: MonitorRef): MonitorSummary { return clone(this.state.monitors.find(m=>monitorKey(m.monitor)===monitorKey(ref)) ?? {monitor:ref,bindingVersion:0,binding:null}); }
+  get(ref: MonitorRef): MonitorSummary { return clone(this.state.monitors.find(m=>monitorKey(m.monitor)===monitorKey(ref)) ?? {monitor:ref,bindingVersion:0,binding:null,bindings:[]}); }
   list(): MonitorSummary[] { return clone(this.state.monitors); }
   grant(id: string): Grant { const grant=this.state.grants.find(g=>g.id===id); if(!grant) throw new LensError('permission_denied','授权不存在'); return clone(grant); }
   private transaction<T>(operation:()=>Promise<T>):Promise<T> {
@@ -107,22 +111,27 @@ export class BindingStore {
     });
   }
   bind(ref:MonitorRef,document:{grantId:string;path:string;scope:TaskScope},expected:number):Promise<MonitorSummary> {
+    return this.bindMany(ref, [document], [], expected);
+  }
+  bindMany(ref:MonitorRef,documents:{grantId:string;path:string;scope:TaskScope}[],keepIds:string[],expected:number):Promise<MonitorSummary> {
     return this.transaction(async()=>{
-      const previous=this.get(ref); if(previous.bindingVersion!==expected) throw new LensError('conflict','绑定已被另一窗口更新，请刷新后重试');
-      const grant=this.grant(document.grantId), resolved=await authorizedPath(grant,document.path);
-      const version=expected+1;
-      const binding:Binding={id:randomUUID(),monitor:clone(ref),grantId:grant.id,documentRealPath:resolved,displayPath:resolved,workspaceRealPath:grant.kind==='directory'?grant.realPath:null,scope:parseScope(document.scope),version,confirmedAt:Date.now()};
-      const row={monitor:clone(ref),bindingVersion:version,binding};
-      await this.persist({...this.state,monitors:[...this.state.monitors.filter(m=>monitorKey(m.monitor)!==monitorKey(ref)),row]}); return clone(row);
+      const previous=this.get(ref);
+      if(previous.bindingVersion!==expected) throw new LensError('conflict','绑定已被另一窗口更新，请重新打开文档管理');
+      if(documents.length+keepIds.length>MAX_DOCUMENTS || new Set(keepIds).size!==keepIds.length) throw new LensError('invalid_request','文档数量超限或引用重复');
+      const version=expected+1, original=bindingsOf(previous);
+      const kept=keepIds.map(id=>{const b=original.find(item=>item.id===id);if(!b)throw new LensError('conflict','保留项不属于当前绑定');return {...b,version};});
+      const added:Binding[]=[];
+      for(const document of documents){
+        const grant=this.grant(document.grantId),resolved=await authorizedPath(grant,document.path);
+        added.push({id:randomUUID(),monitor:clone(ref),grantId:grant.id,documentRealPath:resolved,displayPath:resolved,workspaceRealPath:grant.kind==='directory'?grant.realPath:null,scope:parseScope(document.scope),version,confirmedAt:Date.now()});
+      }
+      const bindings=[...kept,...added];
+      if(new Set(bindings.map(b=>b.documentRealPath)).size!==bindings.length)throw new LensError('conflict','同一实际 Markdown 文件不能重复绑定');
+      const row={monitor:clone(ref),bindingVersion:version,binding:bindings[0]??null,bindings};
+      await this.persist({...this.state,monitors:[...this.state.monitors.filter(m=>monitorKey(m.monitor)!==monitorKey(ref)),row]});return clone(row);
     });
   }
-  clear(ref:MonitorRef,expected:number):Promise<MonitorSummary> {
-    return this.transaction(async()=>{
-      if(this.get(ref).bindingVersion!==expected) throw new LensError('conflict','绑定版本已变化');
-      const row={monitor:clone(ref),bindingVersion:expected+1,binding:null};
-      await this.persist({...this.state,monitors:[...this.state.monitors.filter(m=>monitorKey(m.monitor)!==monitorKey(ref)),row]}); return clone(row);
-    });
-  }
+  clear(ref:MonitorRef,expected:number):Promise<MonitorSummary> { return this.bindMany(ref, [], [], expected); }
   async close():Promise<void> {
     if(this.closed) return; this.closed=true; await this.tail;
     const owner=await this.owner();

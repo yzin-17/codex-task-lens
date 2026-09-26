@@ -19,7 +19,7 @@ export class EmbeddedClient implements LensClient {
     const requestId = crypto.randomUUID();
     return new Promise((resolve, reject) => {
       const abort = () => { const pending = this.pending.get(requestId); if (pending) { pending.cleanup(); pending.reject(new Error('请求已取消')); } };
-      const timer = setTimeout(() => { const pending = this.pending.get(requestId); if (pending) { pending.cleanup(); pending.reject(new Error('任务服务响应超时')); } }, 10000);
+      const timer = setTimeout(() => { const pending = this.pending.get(requestId); if (pending) { pending.cleanup(); pending.reject(new Error('任务服务响应超时')); } }, operation === 'pickMarkdownFiles' ? 125000 : 10000);
       const cleanup = () => { clearTimeout(timer); this.pending.delete(requestId); signal?.removeEventListener('abort', abort); };
       this.pending.set(requestId, { resolve: value => resolve(value as Results[K]), reject, cleanup }); signal?.addEventListener('abort', abort, { once: true });
       try { this.send(JSON.stringify({ nonce: this.config.nonce, paneId: this.identity.paneId, request: { protocolVersion: 1, requestId, monitor: this.monitor, generation: this.identity.generation, operation, params } })); }
