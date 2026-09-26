@@ -141,7 +141,7 @@ test('hidden composer metadata identifies the real pane and restores A→B→A b
     await marker.evaluate((element, id) => element.setAttribute('data-above-composer-conversation-id', id), b);
     await expect(f.page.locator('.lens-thread-label')).toContainText(b.slice(0, 8));
     await expect(f.page.getByText('metadata task', { exact: true })).toHaveCount(0);
-    await expect(f.page.locator('.lens-trigger')).toHaveText('任务');
+    await expect(f.page.locator('.lens-trigger')).toHaveText('进度');
     await marker.evaluate((element, id) => element.setAttribute('data-above-composer-conversation-id', id), a);
     await expect(f.page.locator('.lens-thread-label')).toContainText(a.slice(0, 8)); await expand(f.page);
     await expect(f.page.getByText('metadata task', { exact: true })).toBeVisible();

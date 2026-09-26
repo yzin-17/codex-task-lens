@@ -14,11 +14,15 @@ export function useFloatingWindow({ popup, trigger, open, bounds }: Options) {
     const node = popup.current, button = trigger.current;
     if (!open || !node || !button) return;
     const place = (preferred?: Point) => {
-      const area = bounds();
+      const area = bounds(), anchor = button.getBoundingClientRect();
+      const aboveSpace = anchor.top - area.top - 16;
+      const belowSpace = area.top + area.height - anchor.bottom - 16;
+      const above = aboveSpace >= Math.min(360, area.height * .55) || aboveSpace >= belowSpace;
+      const free = preferred || position.current ? area.height - 16 : above ? aboveSpace : belowSpace;
       node.style.width = `${Math.max(1, Math.min(460, area.width - 16))}px`;
-      node.style.maxHeight = `${Math.max(1, Math.min(560, area.height - 16))}px`;
-      const size = node.getBoundingClientRect(), anchor = button.getBoundingClientRect();
-      const desired = preferred ?? position.current ?? { x: anchor.left, y: anchor.top - size.height - 8 };
+      node.style.maxHeight = `${Math.max(1, Math.min(560, free))}px`;
+      const size = node.getBoundingClientRect();
+      const desired = preferred ?? position.current ?? { x: anchor.left, y: above ? anchor.top - size.height - 8 : anchor.bottom + 8 };
       const point = clampPosition(desired, size, area);
       if (preferred || position.current) position.current = point;
       node.style.left = `${point.x}px`; node.style.top = `${point.y}px`;
