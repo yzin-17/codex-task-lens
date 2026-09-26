@@ -2,8 +2,8 @@
 
 对应 Spec：[2026-09-26-task-lens-mvp](../specs/2026-09-26-task-lens-mvp.md)
 
-> 状态：独立文档监控链路已实现并通过 I1；当前 13 / 23。Codex 内嵌接入、I2 与 R1 未完成；不代表一期整体通过。
-> 已知前提：用户已确认 Mac CDP 验证通过；T02 只固化环境与兼容样例，不重新论证路线。用户环境的版本／脱敏结构尚未补齐；已完成的独立能力与未完成的宿主适配分别记录。
+> 状态：独立模式与 Codex 内嵌实现已交付，当前 20 / 23。T02 用户环境基线、I2 真机验收与 R1 最终 Review 尚未完成；不代表一期整体通过。
+> 已知前提：用户已确认 Mac CDP 可行。适配代码以已核对上游源码和合成契约 M2 实施，已通过托管 macOS／Linux 的真实 Chromium CDP 测试；T02 仍独立保留用户实际版本与脱敏输入义务。
 > 延后范围：[TODO](../TODO.md)。其中事项不纳入本期 23 项计数。
 
 ## 共享执行约束
@@ -18,7 +18,7 @@
 
 ### 统一验证入口
 
-基础测试、构建与独立入口已建立；表中 CDP／doctor／test:mac 仍为后续任务要求，不得作为现有可用命令：
+基础、独立与内嵌入口均已建立。`test:mac` 当前提供显式授权的只读结构探测，不能替代完整 I2；入口结果与功能验收分开记录：
 
 | 入口 | 责任与用途 |
 | --- | --- |
@@ -27,10 +27,14 @@
 | `pnpm exec playwright test <精确测试路径>` | UI 和真实本地面板测试；配置由 T01 建立、fixture 由使用任务维护 |
 | `pnpm dev:standalone` | T17 建立，启动真实应用服务与本地面板，不需要 Codex |
 | `pnpm start -- --standalone` | T17 已建立构建后独立入口 |
-| `pnpm start -- --cdp-port 9341`、`pnpm doctor` | T20 待建立，当前不可用 |
-| `pnpm test:mac` | I2 建立显式 opt-in 的真机验收入口；没有已授权 Mac 环境时报告阻塞，不以跳过代替通过 |
+| `pnpm start -- --cdp-port 9341`、`pnpm doctor` | T20 已建立构建后内嵌／诊断入口；真实 Codex 组合由 I2 验收 |
+| `pnpm test:mac -- --enable --probe-only` | 只采集真实环境与脱敏结构；不发送消息、不重启。未加 `--enable` 失败；不加 `--probe-only` 会明确报告完整 I2 未完成并非零退出 |
 
 最终记录统一包含：任务 ID、状态、代码／文档提交、执行命令、环境、关键断言结果、证据位置、阻塞与下一步。证据文档按任务写入 `docs/validation/task-lens-mvp/<ID>.md`，不提交私人日志或带凭证的端点。
+
+### M2：已核对的适配输入契约
+
+2026-09-26 按继续实施要求，将可编码的上游格式合同与用户真机证据分开：T08／T10／T12 可消费 [适配来源与合成样例](../compatibility/adapter-contracts.md)，不再等待 T02 才能实现。M2 不增加任务计数，不声称任何 Codex Desktop 版本已通过。T02 与 I2 仍是正式验收前置，不缩减原有产品要求。
 
 ## A. 基础与可验证契约
 
@@ -50,7 +54,7 @@
   - 上下文入口：Spec §1、§5、§8、§11；用户已确认 CDP 验证通过这一前提。
   - 执行边界：`docs/compatibility/macos.md`、`tests/fixtures/codex/macos-baseline/**`；只记录资料，不修改运行中 Codex、不安装主题、不读取认证文件。
   - 完成条件：记录 macOS／架构／Codex 版本、实际应用发现规则、端点和 renderer 形状、两个对话切换及歧义样例、会话身份／cwd／明确文件路径事件样例；字段不可获取时写明能力缺口和降级边界。fixture 使用合成值或获准脱敏值。
-  - 验证方式：与实际已通过的连接和切换结果逐项对照，核对资料不含正文／凭证。没有本机资料只阻塞相关 adapter，不阻塞文档解析与手动模式。
+  - 验证方式：与实际已通过的连接和切换结果逐项对照，核对资料不含正文／凭证。没有本机资料时保留 T02 未完成；M2 允许适配代码先行验证，不阻塞手动模式，不替代 I2 真机验收。
 
 - [x] T03：建立共享身份、快照和交互消息契约
   - 执行记录：已完成；代码基线 06e8c234；真实命令、环境与断言见 [T03 验证](../validation/task-lens-mvp/T03.md)。
@@ -101,11 +105,11 @@
 
 ## C. 候选发现与 Codex 基础适配
 
-- [ ] T08：实现只读的本地会话线索适配
-  - 执行记录：未实现；等待 T02 的真实会话格式基线，不用 unavailable 伪装完成。
+- [x] T08：实现只读的本地会话线索适配
+  - 执行记录：已完成实现与局部验证；代码基线 4f8595bd；实际命令、断言与范围见 [T08 验证](../validation/task-lens-mvp/T08.md)。不替代 T02／I2。
   - 覆盖断言：AC04 的精确会话匹配、cwd／路径线索和日志失效降级。
-  - 启动依赖：T02、T03、T05；T02 未提供记录格式时仅该能力阻塞，不猜字段。
-  - 上下文入口：Spec §5.2；`docs/compatibility/macos.md`、`tests/fixtures/codex/macos-baseline/`、`src/contracts/`。
+  - 启动依赖：T03、T05、M2；用户格式兼容结果由 T02／I2 补录，不用 unavailable 伪装适配完成。
+  - 上下文入口：Spec §5.2；`docs/compatibility/adapter-contracts.md`；合成记录 fixture 与 `src/contracts/`。
   - 执行边界：`src/adapters/codex/session-records/**`、`tests/integration/session-records.test.ts`；只读已授权数据源，不接 app-server、Hooks 或聊天推理服务。
   - 完成条件：先缩小文件候选再核对内部 threadId；按已验证格式返回 cwd 和明确路径证据，正确处理上下文目录变化；日志增量读取、轮转、半行、未知／损坏／超限记录可恢复；不执行记录中的命令、不读取 auth.json。
   - 验证方式：`pnpm exec vitest run tests/integration/session-records.test.ts`；用合成记录验证多会话、相同最近修改时间、相对路径无基准、shell 变量、截断追加及数据源不可用的结果；不保存正文副本。
@@ -119,32 +123,32 @@
   - 完成条件：组合会话线索、配置 glob 和手动文件；实际路径去重、保留来源；校验清单与预览计数；扫描可取消、有上限；日志 unavailable 时仍能返回目录／手动结果。不同工作目录同名文件不合并。
   - 验证方式：`pnpm exec vitest run tests/integration/candidates.test.ts`；真实临时目录测试多候选、无清单、归档／依赖目录忽略、越权链接、达到扫描上限、日志失效和取消请求。
 
-- [ ] T10：实现 macOS 可信端点发现与显式启动
-  - 执行记录：未实现；等待 T02 的真实应用／进程／端点基线。T14 的 open-source.ts 不是 CDP 启动器。
+- [x] T10：实现 macOS 可信端点发现与显式启动
+  - 执行记录：已完成实现与局部验证；代码基线 4f8595bd；实际命令、断言与范围见 [T10 验证](../validation/task-lens-mvp/T10.md)。不替代 T02／I2。
   - 覆盖断言：AC02 的进程／应用／监听校验和不中断现有任务；AC11 的启动诊断基础。
-  - 启动依赖：T02、T03。
+  - 启动依赖：T03、M2；已核对的源码常量／DOM 合同，不以待补录的 T02 阻塞可测试实现。
   - 上下文入口：Spec §8、§11；`docs/compatibility/macos.md`。
   - 执行边界：`src/platform/macos/**`、`tests/unit/macos-launcher.test.ts`；不注入 UI、不修改应用包、不启动常驻自动重启服务。
   - 完成条件：从真实应用元数据定位可执行文件，校验端口所属进程与回环监听；端点不可用且应用已运行时提示等待／正常退出，不强退；仅在用户明确请求且无运行实例时调试启动；分开报告进程、端点和 renderer 检查结果。
   - 验证方式：`pnpm exec vitest run tests/unit/macos-launcher.test.ts`；注入进程／命令执行端口的测试替身，断言参数数组、未知端口拒绝、冲突／超时、不出现 kill／修改包操作。真实路径由 I2 验收。
 
-- [ ] T11：实现有界的 CDP 传输与上下文生命周期
-  - 执行记录：未实现；等待 T10 的可信端点契约。
+- [x] T11：实现有界的 CDP 传输与上下文生命周期
+  - 执行记录：已完成实现与局部验证；代码基线 4f8595bd；实际命令、断言与范围见 [T11 验证](../validation/task-lens-mvp/T11.md)。不替代 T02／I2。
   - 覆盖断言：AC02 的可信连接；AC09 的超时、断线、重连与销毁。
   - 启动依赖：T10。
   - 上下文入口：Spec §7.2、§7.3、§8；`src/contracts/`、`src/platform/macos/` 的验证结果。
   - 执行边界：`src/adapters/codex/cdp/**`、`tests/integration/cdp-session.test.ts`；不包含对话选择规则或文档业务。
   - 完成条件：仅连接已校验的端点；请求关联、超时、错误传播、context 创建／销毁和有退避的重连；关闭时拒绝未完成请求并清空订阅；不可自动重启 Codex 来修复连接。
-  - 验证方式：`pnpm exec vitest run tests/integration/cdp-session.test.ts`；本机假 CDP server 验证乱序响应、socket 关闭、超时、重复事件、端点改变需重新校验及监听计数归零。
+  - 验证方式：`pnpm exec vitest run tests/integration/cdp-session.test.ts`；确定性 Socket fixture 与真实 Chromium CDP 共同验证乱序响应、socket 关闭、超时、重复事件、端点改变需重新校验及监听计数归零。
 
-- [ ] T12：实现按对话区域识别身份的 DOM adapter
-  - 执行记录：未实现；等待 T02 的实际 DOM 基线，不猜选择器。
+- [x] T12：实现按对话区域识别身份的 DOM adapter
+  - 执行记录：已完成实现与局部验证；代码基线 4f8595bd；实际命令、断言与范围见 [T12 验证](../validation/task-lens-mvp/T12.md)。不替代 T02／I2。
   - 覆盖断言：AC03 的当前对话／多窗口／侧聊歧义识别；AC08 的安全挂载位置识别。
-  - 启动依赖：T02、T03。
-  - 上下文入口：Spec §5.1、§7.3；`tests/fixtures/codex/macos-baseline/`。
+  - 启动依赖：T03、M2；已核对的源码常量／DOM 合同，不以待补录的 T02 阻塞可测试实现。
+  - 上下文入口：Spec §5.1、§7.3；`tests/fixtures/codex/contract-baseline/`、`docs/compatibility/adapter-contracts.md`。
   - 执行边界：`src/adapters/codex/dom/**`、`tests/unit/thread-selection.test.ts`；不读文件、不维护全局单线程状态、不依赖宿主 React 私有对象。
   - 完成条件：对给定文档／pane 输出明确身份与挂载点或 unknown；没有唯一归属时不取最后节点；识别变化可触发新 generation，主对话与辅助区域不相互顶替。
-  - 验证方式：`pnpm exec vitest run tests/unit/thread-selection.test.ts`；覆盖两个对话切换、多区域、隐藏旧节点、侧聊、首页、缺属性、无安全锚点、布局变化和同标题不同 threadId。
+  - 验证方式：`pnpm exec vitest run tests/unit/thread-selection.test.ts` 与 `pnpm exec playwright test tests/ui/embedded.spec.ts`；覆盖两个对话切换、多区域、隐藏旧节点、侧聊、首页、缺属性、无安全锚点、布局变化和同标题不同 threadId。
 
 ## D. 独立模式最小真实链路
 
@@ -204,17 +208,17 @@
 
 ## E. Codex 内嵌接入与交付
 
-- [ ] T18：实现按目标／上下文隔离的宿主 CDP bridge
-  - 执行记录：未实现；等待 T11／T12。
+- [x] T18：实现按目标／上下文隔离的宿主 CDP bridge
+  - 执行记录：已完成实现与局部验证；代码基线 4f8595bd；实际命令、断言与范围见 [T18 验证](../validation/task-lens-mvp/T18.md)。不替代 T02／I2。
   - 覆盖断言：AC03 的展示版本隔离、AC09 的连接清理、AC10 的有限消息通路。
   - 启动依赖：T11、T12、T13。
   - 上下文入口：Spec §5.1、§7.2、§7.3、§8；CDP、DOM adapter 和应用服务。
-  - 执行边界：`src/host/cdp-bridge/**`、`tests/integration/cdp-bridge.test.ts`；不编写 React UI 或修改宿主输入内容。
-  - 完成条件：管理每个可信 target／context／pane 的观察身份、generation 与应用订阅；注册有限 Runtime binding，数据以安全序列化传输；拒绝陌生上下文、旧 generation、错误绑定版本和未知操作；重连重新验证，不复用旧上下文。
+  - 执行边界：`src/host/cdp-bridge/**`、`tests/integration/cdp-bridge.test.ts`、`tests/unit/cdp-world.test.ts`、`src/contracts/embedded.ts`；不编写 React UI 或修改宿主输入内容。
+  - 完成条件：管理每个可信 target／context／pane 的观察身份、generation 与应用订阅；注册有限 Runtime binding，数据以安全序列化传输；拒绝陌生上下文、旧 generation、错误绑定版本和未知操作；重连重新验证归属，发现并清理存续的工具专属隔离 world；不复用旧 binding／nonce／展示状态。
   - 验证方式：`pnpm exec vitest run tests/integration/cdp-bridge.test.ts`；假 CDP 配合真实应用服务验证两个窗口、A→B→A、延迟响应、上下文销毁、绑定名伪造与停止清理。通过不等于已在 Codex 展示。
 
-- [ ] T19：实现可幂等挂载与清理的内嵌面板入口
-  - 执行记录：未实现；等待 T12。当前注入构建仅为显式 not_implemented 占位。
+- [x] T19：实现可幂等挂载与清理的内嵌面板入口
+  - 执行记录：已完成实现与局部验证；代码基线 4f8595bd；实际命令、断言与范围见 [T19 验证](../validation/task-lens-mvp/T19.md)。不替代 T02／I2。
   - 覆盖断言：AC08 的 Codex 内嵌展示与不干扰；AC09 的重复注入／卸载。
   - 启动依赖：T12、T15、T16；T03 的 bridge 消息契约已通过，不等待宿主 bridge 的产品验收。
   - 上下文入口：Spec §3.2、§5.1、§7.3；DOM adapter 与两个共享组件。
@@ -222,17 +226,17 @@
   - 完成条件：在安全锚点挂载唯一 Shadow DOM 根；折叠计数、展开清单与绑定流程可用；实例与目标身份关联；旧响应丢弃；unknown 无串用数据；重复挂载不增加节点／observer；卸载恢复原布局且不移除其他插件。
   - 验证方式：`pnpm exec playwright test tests/ui/embedded.spec.ts`；真实 DOM fixture + 契约 bridge 验证重复注入、布局重建、双 pane、浅深色、键盘输入／发送／审批与滚动不被遮挡；记录清理前后节点和监听计数。
 
-- [ ] T20：组装源码交付入口与运维说明
-  - 执行记录：未完成；T17 已提供独立运行入口，但 CDP 组合与 doctor 仍未实现。
+- [x] T20：组装源码交付入口与运维说明
+  - 执行记录：已完成实现与局部验证；代码基线 4f8595bd；实际命令、断言与范围见 [T20 验证](../validation/task-lens-mvp/T20.md)。不替代 T02／I2。
   - 覆盖断言：AC02 的显式连接入口、AC09 的退出语义、AC11 的可运行交付。
   - 启动依赖：T08、T10、T17、T18、T19。
   - 上下文入口：Spec §7、§8；平台启动器、会话记录 adapter、独立 runtime、CDP bridge、注入构建产物。
-  - 执行边界：`src/cli/**`、`src/host/codex-runtime.ts`、`tests/integration/cli.test.ts`、`docs/development.md`、`README.md`、运行与构建脚本；只组装已完成组件和处理有界接缝，不引入原生壳或自动更新。
+  - 执行边界：`src/cli/**`、`src/host/codex-runtime.ts`、`tests/integration/cli.test.ts`、`tests/standalone/codex-fallback.spec.ts`、`tests/unit/mac-probe.test.ts`、`docs/development.md`、`README.md`、运行与构建脚本；只组装已完成组件和处理有界接缝，不引入原生壳或自动更新。
   - 完成条件：提供 standalone／指定 CDP 端点／doctor 入口，明确构建产物；会话线索 adapter 仅注入 Codex 模式；未知端点不注入、已有运行中 Codex 不强退；停止工具清理自有资源但不声称关闭 Codex 的调试端口；文档说明安装、授权、日志位置、恢复普通启动与只验证过的平台。
   - 验证方式：`pnpm build`、`pnpm exec vitest run tests/integration/cli.test.ts`；从干净安装运行 `pnpm start -- --standalone` 和 `pnpm doctor`；CDP 生产组合由 I2 证明。清理测试核对源文件／用户配置 hash 不变。
 
 - [ ] I2：在已验证 Mac 上验收完整 Codex 内嵌链路
-  - 执行记录：未执行；没有已授权用户 Mac 的完整产品接入。托管 macOS 核心 CI 不替代本门禁。
+  - 执行记录：待用户实际环境验收；已提供安全结构探测与 [I2 场景清单](../validation/task-lens-mvp/I2.md)。托管 macOS 的 Chromium CDP 测试不替代 Codex Desktop 验收。
   - 覆盖断言：AC02、AC03、AC04、AC07、AC08、AC09、AC10、AC11 的真实目标环境组合行为。
   - 启动依赖：I1、T20。
   - 执行所有者与边界：具有用户授权 Mac 环境的整合者；可写 `tests/mac/**`、`package.json` 的 `test:mac` 入口、兼容基线与 `docs/validation/task-lens-mvp/I2.md`；不操作用户长任务，不把缺失实现藏进测试。
@@ -244,7 +248,7 @@
 ## 最终一致性 Review
 
 - [ ] R1：审计一期交付、验收证据与后续引用
-  - 执行记录：未通过；一期仍有必要能力与 I2 缺失，本次局部检查不兑换为最终 Review。
+  - 执行记录：未通过；等待 T02／I2 的真实环境证据，本次代码与文档检查不兑换为最终 Review。
   - 覆盖断言：AC12，以及 AC01–AC11 的覆盖完整性审计，不重复继承其实现责任。
   - 启动依赖：T01–T20、I1、I2 已满足各自完成条件。
   - 执行边界：本 Task、原 Spec、README、TODO 与必要验证索引；发现代码缺陷退回责任任务或新建有界修复任务，不能在 Review 中实现一批遗漏能力。
@@ -276,7 +280,7 @@ T01 与 T02 可以独立推进。T03 就绪后，纯解析、路径策略、DOM 
 
 第一条组合验收链路是 T17 → I1，不等 CDP 最后完工才验证文件监控。T18 和 T19 可在共享契约就绪后并行，前者负责宿主、后者负责 renderer；T20 只接线，I2 在真实 Mac 验收。`.github`、构建配置和 package 文件有变更时由当前整合者串行处理。
 
-T08 暂时拿不到兼容资料时，不将“日志缺失”伪装为适配完成。T09 依赖 M1 的可选 SessionHints 契约，目录扫描与手动链路可以独立完成并通过 I1；Codex 组合入口 T20 仍等待 T08。正式 I2 必须覆盖 Spec 要求的真实候选来源或先明确修订范围。
+T08 依据 M2 已实现有限的真实记录适配，而非固定返回“日志缺失”。T09 仍只消费 M1 的可选 SessionHints，独立模式不引入日志硬依赖。T20 已组合适配、CDP 与 UI；正式 I2 仍必须覆盖用户实际 Codex 中的候选来源，不以合成 fixture 代替。
 
 ## 执行记录
 
@@ -285,3 +289,5 @@ T08 暂时拿不到兼容资料时，不将“日志缺失”伪装为适配完�
 2026-09-26：实现独立文件闭环并通过 I1；全量 Linux／托管 macOS 核心 CI 与 Linux 浏览器检查通过。13 个已完成项均链接单项证据，另 10 项保留未完成及依赖。详见 [验证索引](../validation/task-lens-mvp/README.md)。构建／fixture／补充回归路径由整合者串行维护，没有让 worker 并发覆盖共享文件。
 
 后续按任务写入真实状态、产物与验证引用。任务拆分保留原 ID 与验收义务，父项改为分组并说明计数口径变化；不靠拆分增加完成量。事项延期须引用 [TODO](../TODO.md) 中的 ID 与原始要求，不把移动或归档当作完成。
+
+2026-09-26：继续完成 T08／T10／T11／T12／T18／T19／T20，实现内嵌版并通过 [CI 36234589984](https://github.com/yzin-17/codex-task-lens/actions/runs/36234589984)。共 20 / 23；T02／I2／R1 保持未勾选。修复跨 CDP 客户端重连残留 world 与 CLI 就绪前关停竞态；未修改任务分母或引入二期估算。

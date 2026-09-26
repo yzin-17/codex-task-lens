@@ -2,7 +2,7 @@
 
 - Spec ID：`task-lens-mvp`
 - 创建日期：2026-09-26
-- 状态：待实施；本次仅提交设计与任务，不代表功能已完成。
+- 状态：代码实现与受控环境验证已交付；20 / 23，仍待 T02 用户兼容基线、I2 Codex Desktop 真机验收与 R1 最终 Review。
 - 实施台账：[Task](../tasks/task-lens-mvp.md)
 - 后续范围：[TODO](../TODO.md)
 
@@ -19,6 +19,10 @@
 5. **核心可独立运行**：CDP 不可用时，可以在本地浏览器面板手动选择文档继续查看；不在一期增加原生菜单栏 App 或另一套桌面壳。
 
 2026-09-26，用户在本次需求讨论中反馈 Mac 验证已通过。将此作为 CDP 路线可行的输入，不重复安排“是否能实现”的探索。该反馈未提供具体 macOS／Codex 版本、选择器或测试产物；实施时补录兼容基线和脱敏样例，不能把它当作本项目已通过端到端验收。
+
+### 1.1 实施细化：适配合同与真机证据分离
+
+已核对的上游源码常量、协议文档和明确标记的合成 fixture 形成 M2，允许实现会话记录、应用校验、DOM 识别与组合入口；不将 T02 的用户资料缺失误当作所有代码无法推进。具体来源见 [适配合同](../compatibility/adapter-contracts.md)。T02 仍记录实际版本与输入，I2 仍验证用户 Codex 中的完整流程；两者不以托管 macOS／Chromium 测试代替。
 
 ## 2. 一期范围与非目标
 
@@ -257,3 +261,11 @@ source 状态至少区分 `loading / ready / missing / permission_denied / unsup
 - [Dream Skin 的 macOS 启动实现](https://github.com/Fei-Away/Codex-Dream-Skin/blob/34335d27d54300eccb325cc652f6c93fef428b84/macos/scripts/common-macos.sh)：macOS 启动参数与生命周期参考；不引入换肤资产或配置修改。
 
 官方协议、文件监听、Markdown 语法和安全说明已在对应设计小节给出具体链接。实现前对使用到的接口进行版本核验，不把第三方 DOM 属性视为官方承诺。
+
+## 12. 当前实现入口与验收状态
+
+已提供 `pnpm start -- --cdp-port 9341`、`pnpm doctor` 和独立面板。可选 `--workspace` 是目录读取授权；`--session-root` 必须配合 `--allow-session-read`，日志授权不隐式扩展文档授权。每个 profile 使用固定 `--source-id`，不依赖临时端口识别。
+
+会话读取每次每文件限制 4 MiB，单条 1 MiB；尚未读完和索引截断均在候选诊断中说明。renderer 使用专属隔离 world；重连发现并清理其存续实例，然后建立新的 binding／nonce 与展示身份，不直接复用旧请求权限。
+
+`pnpm test:mac -- --enable --probe-only` 仅采集脱敏环境与 DOM 识别输入，不发送消息、不重启应用、不读取日志。它不是完整 I2；默认完整入口在证据不足时明确非零退出。实际场景和时延要求仍保留于 [I2](../validation/task-lens-mvp/I2.md)。完整构建与使用命令见 [开发说明](../development.md)。

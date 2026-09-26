@@ -1,8 +1,34 @@
-# 一期验证索引：独立文档链路
+# 一期验证索引：独立与 Codex 内嵌实现
 
-验证日期：2026-09-26。代码基线：`06e8c234074dfc9bdf18ac802aeee36779650a56`。后续本次收尾只更新说明、台账与证据，不把文档提交当作新的产品功能。
+日期：2026-09-26。当前代码基线 `4f8595bd72a893b408a08f03a80875bdf2f332a0`；任务计数 **20 / 23**，不是工作量百分比。T02／I2／R1 仍未完成。
 
-## 实际执行证据
+## 当前实际执行证据
+
+[CI run 36234589984](https://github.com/yzin-17/codex-task-lens/actions/runs/36234589984)：Linux 与托管 macOS 均通过冻结安装、lint、typecheck、26 个测试文件／92 项核心测试、build、20 项浏览器测试。两个平台运行相同用例，不重复累加为两套功能覆盖。
+
+- [verify (ubuntu-latest)](https://github.com/yzin-17/codex-task-lens/actions/runs/36234589984/job/108383952416)：全部必要步骤通过。
+- [verify (macos-latest)](https://github.com/yzin-17/codex-task-lens/actions/runs/36234589984/job/108383952504)：全部必要步骤通过。
+
+托管 macOS 测试环境为 macOS 26.6.2／arm64、Node 24.20.0、pnpm 10.28.2、Playwright 1.58.0／Chromium 145.0.7632.6。它不是用户的实际 Codex 环境，不能作为 Codex Desktop 版本声明。
+
+实际命令：`pnpm install --frozen-lockfile`；`pnpm lint && pnpm typecheck && pnpm test && pnpm build`；`pnpm exec playwright install --with-deps chromium`；`pnpm test:ui`。各单项记录中的定向命令是复现入口，用例已在此全量运行中执行。
+
+## 已完成项
+
+[T01](T01.md)、[T03](T03.md)、[T04](T04.md)、[T05](T05.md)、[T06](T06.md)、[T07](T07.md)、[T08](T08.md)、[T09](T09.md)、[T10](T10.md)、[T11](T11.md)、[T12](T12.md)、[T13](T13.md)、[T14](T14.md)、[T15](T15.md)、[T16](T16.md)、[T17](T17.md)、[T18](T18.md)、[T19](T19.md)、[T20](T20.md)、[I1](I1.md)。
+
+## 本轮修复与覆盖
+
+内嵌链路使用真实 Chromium CDP，而不是仅 mock 一个成功响应。覆盖确认绑定、原子保存、A→B→A、多 pane、未知身份、源文本安全、独立降级和编译后 CLI。已修复跨 CDP 客户端重连产生孤立 world／双面板的问题；恢复时清理旧 module 的 root／observer／timer。另修复 CLI 打印就绪信息与关停处理安装顺序的竞态，以及晚到初始快照覆盖新推送。
+
+会话 adapter 拒绝索引后文件改成越权链接和过多记录中猜测唯一会话；候选 UI 自动查找已授权范围，但仍要求用户确认绑定。没有弱化身份或文件授权断言以换取绿色测试。
+
+## 剩余门禁
+
+T02：用户实际版本与脱敏输入基线；[I2](I2.md)：实际 Codex Desktop 场景、时延和清理证据；R1：完整门禁通过后的最终审计。已提供不读取正文／登录文件的 probe，不假装自动完成所有真机检查。原 Spec／Task 不归档。
+
+## 前一阶段历史证据
+
 
 [GitHub Actions run 36229617979](https://github.com/yzin-17/codex-task-lens/actions/runs/36229617979)
 
@@ -13,17 +39,3 @@
 | Linux Chromium / Playwright 1.58.0 | 13 项浏览器测试全部通过；含 3 项 I1 真实文件与实际进程测试 | Linux job 中 `pnpm test:ui` 步骤 |
 
 实际全量命令：`pnpm install --frozen-lockfile`；`pnpm lint && pnpm typecheck && pnpm test && pnpm build`；Linux 另执行 `pnpm exec playwright install --with-deps chromium` 和 `pnpm test:ui`。下方各任务文件提供定向复现入口；这些定向命令的用例已被上述全量命令执行，不宣称另跑了一轮不存在的结果。
-
-## 已完成项
-
-[T01](T01.md)、[T03](T03.md)、[T04](T04.md)、[T05](T05.md)、[T06](T06.md)、[T07](T07.md)、[T09](T09.md)、[T13](T13.md)、[T14](T14.md)、[T15](T15.md)、[T16](T16.md)、[T17](T17.md)、[I1](I1.md)。任务计数 **13 / 23**，不是工作量完成比例。
-
-## 未完成及不可外推的结论
-
-T02 缺少 [已授权 Mac 的兼容资料](../../compatibility/macos.md)。T08、T10、T11、T12、T18、T19 仍未实现；T20 只有 T17 提供的独立入口可复用，完整 Codex 组合／doctor 未完成。I2、R1 未通过。
-
-本次检查修复了两类实现问题并补回归：共享文件的授权失效后冻结各 monitor 自己的缓存；请求重放与 Markdown 结构展开的内存上限。测试中的 Host 伪造改为真实 HTTP 请求发送，避免 fetch 规范化 Host 导致测试错误。没有弱化授权断言来换取 CI 通过。
-
-局部 UI 测试采用合成契约数据；I1 使用编译后的真实 parser、store、watcher、HTTP 和 React 面板，测试只负责创建／修改临时源文件。运行凭证不写测试 trace 或日志。没有上传私人日志、用户源码或真实对话。
-
-未测得目标 Mac 的更新 p95，也未执行真实 Codex 中的对话切换、注入／卸载、输入与审批兼容验证。因此这不是整个一期的最终 Review 结论；剩余义务仍留在原 [实施台账](../../tasks/task-lens-mvp.md)。
