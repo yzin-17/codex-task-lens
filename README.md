@@ -4,7 +4,7 @@
 
 ## 下载桌面版
 
-从 [GitHub Releases](https://github.com/yzin-17/codex-task-lens/releases) 下载对应系统的构建，**无需 Node、pnpm、Git 或命令行构建**。目前为 `0.1.0-alpha.2` 预发布，平台与验收边界见 [发行说明](docs/releases/0.1.0-alpha.2.md)。
+从 [GitHub Releases](https://github.com/yzin-17/codex-task-lens/releases) 下载对应系统的构建，**无需 Node、pnpm、Git 或命令行构建**。当前提供预发布构建，版本、平台与验收边界见 [发行说明](docs/releases)。
 
 | 系统 | 附件后缀 | 使用 |
 | --- | --- | --- |
@@ -32,7 +32,7 @@ Mac 尚未完成 Developer ID 签名与 Apple 公证，Windows 未签名，系�
 
 最多 16 份 `.md`／`.markdown`，真实路径去重。章节可搜索；点击已选文件名或“管理”调整范围，标签 × 可快速移除。新增／移除／范围调整先进入草稿，底部确认后才更新绑定和进度；取消恢复原绑定，不删除源文件。
 
-清单按文档显示未完成与已完成，两组默认展开。关闭浮窗后进度仍更新，图钉可固定，标题栏可在当前对话区域内拖动。源文件失效时明确标记缓存，不把失败显示成零项成功。
+清单按文档显示未完成与已完成，两组默认展开。关闭浮窗后进度仍更新，同时取消固定并清除拖动位置，下次打开重新锚定进度入口；图钉可固定，标题栏可在当前对话区域内拖动。源文件失效时明确标记缓存，不把失败显示成零项成功。
 
 工具只写自己的应用数据目录。Mac 默认 `~/Library/Application Support/CodexTaskLens/`，Windows 默认 `%APPDATA%/CodexTaskLens/`。不修改 Codex 应用包，不读取 `auth.json`，不上传聊天或文件。绑定存储为 schema v2，旧 v1 自动兼容读取；回退旧二进制前需备份，不能删状态绕过错误。
 
@@ -50,7 +50,7 @@ pnpm start -- --cdp-port 9341 --workspace "$PWD"
 
 需要 Node.js 24.x，pnpm 版本由仓库固定。`--workspace` 是对该目录 Markdown 的明确授权；不传时可在面板选择具体文件。Mac 可用 `--app "/实际路径/Codex.app"` 指定应用；不同 profile 使用不同且固定的 `--source-id`，不要随端口变化修改。
 
-可选会话记录仅在明确传入 `--session-root "${CODEX_HOME:-$HOME/.codex}" --allow-session-read` 时读取。日志缺失、未知格式和路径歧义时仍可扫描授权目录、手动绑定；不猜最近活动会话就是当前页面。
+本地会话记录扫描目前通过 Task Lens CLI 配置，桌面控制台入口仍待接入（见发行任务 P6）。可选会话记录仅在明确传入 `--session-root "${CODEX_HOME:-$HOME/.codex}" --allow-session-read` 时读取。日志缺失、未知格式和路径歧义时仍可扫描授权目录、手动绑定；不猜最近活动会话就是当前页面。
 
 独立源码模式使用 `pnpm start -- --standalone` 或 `pnpm dev:standalone`。CLI 浏览器凭证只在内存中使用，刷新后可能需要重新打开本次授权入口；桌面版独立窗口的 Ctrl/Cmd+R 会重新使用内存入口，不把凭证写入日志。
 
