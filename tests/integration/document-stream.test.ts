@@ -30,8 +30,11 @@ describe('real document stream',()=>{
     expect(s.snapshot(scope).tasks?.total).toBe(1);await writeFile(file,'# A\n- [ ] first\n');await expect.poll(()=>s.snapshot(scope).status).toBe('scope_missing');expect(s.snapshot(scope).cached).toBe(true);
   });
   it('labels size and permission failures instead of zeroing the count',async()=>{
-    const s=await stream();await chmod(file,0o000);await s.refreshNow();expect(s.snapshot()).toMatchObject({status:'permission_denied',cached:true});
-    await chmod(file,0o600);await writeFile(file,'x'.repeat(2*1024*1024+1));await s.refreshNow();expect(s.snapshot()).toMatchObject({status:'unsupported',cached:true});
+    const s=await stream();await chmod(file,0o000);await s.refreshNow();
+    // An already-open read may first report unstable after chmod changes ctime.
+    await expect.poll(()=>s.snapshot()).toMatchObject({status:'permission_denied',cached:true,tasks:{total:1}});
+    await chmod(file,0o600);await writeFile(file,'x'.repeat(2*1024*1024+1));await s.refreshNow();
+    await expect.poll(()=>s.snapshot()).toMatchObject({status:'unsupported',cached:true,tasks:{total:1}});
   });
   it('releases its own watchers, timers and listeners on close',async()=>{const s=await stream();await s.close();expect(s.resources()).toEqual({watchers:0,timers:0,listeners:0});});
 });

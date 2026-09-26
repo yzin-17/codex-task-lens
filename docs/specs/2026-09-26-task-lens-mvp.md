@@ -264,7 +264,7 @@ source 状态至少区分 `loading / ready / missing / permission_denied / unsup
 
 ## 12. 当前实现入口与验收状态
 
-已提供 `pnpm start -- --cdp-port 9341`、`pnpm doctor` 和独立面板。可选 `--workspace` 是目录读取授权；`--session-root` 必须配合 `--allow-session-read`，日志授权不隐式扩展文档授权。每个 profile 使用固定 `--source-id`，不依赖临时端口识别。
+已提供 `pnpm start -- --cdp-port 9341`、`pnpm run doctor` 和独立面板。可选 `--workspace` 是目录读取授权；`--session-root` 必须配合 `--allow-session-read`，日志授权不隐式扩展文档授权。每个 profile 使用固定 `--source-id`，不依赖临时端口识别。
 
 会话读取每次每文件限制 4 MiB，单条 1 MiB；尚未读完和索引截断均在候选诊断中说明。renderer 使用专属隔离 world；重连发现并清理其存续实例，然后建立新的 binding／nonce 与展示身份，不直接复用旧请求权限。
 

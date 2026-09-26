@@ -27,7 +27,7 @@
 | `pnpm exec playwright test <精确测试路径>` | UI 和真实本地面板测试；配置由 T01 建立、fixture 由使用任务维护 |
 | `pnpm dev:standalone` | T17 建立，启动真实应用服务与本地面板，不需要 Codex |
 | `pnpm start -- --standalone` | T17 已建立构建后独立入口 |
-| `pnpm start -- --cdp-port 9341`、`pnpm doctor` | T20 已建立构建后内嵌／诊断入口；真实 Codex 组合由 I2 验收 |
+| `pnpm start -- --cdp-port 9341`、`pnpm run doctor` | T20 已建立构建后内嵌／诊断入口；真实 Codex 组合由 I2 验收 |
 | `pnpm test:mac -- --enable --probe-only` | 只采集真实环境与脱敏结构；不发送消息、不重启。未加 `--enable` 失败；不加 `--probe-only` 会明确报告完整 I2 未完成并非零退出 |
 
 最终记录统一包含：任务 ID、状态、代码／文档提交、执行命令、环境、关键断言结果、证据位置、阻塞与下一步。证据文档按任务写入 `docs/validation/task-lens-mvp/<ID>.md`，不提交私人日志或带凭证的端点。
@@ -48,7 +48,7 @@
   - 验证方式：干净目录执行 `pnpm install --frozen-lockfile && pnpm lint && pnpm typecheck && pnpm test && pnpm build`；记录工具版本和构建产物规则。
 
 - [ ] T02：固化已验证 Mac 的兼容输入样例
-  - 执行记录：阻塞：缺少已授权用户 Mac 的版本与脱敏 DOM／会话结构；见 [兼容交接](../compatibility/macos.md)。不重新论证可行性。
+  - 执行记录：已连接用户授权 Mac，补录实际版本与应用签名；当前运行实例未开放 CDP，DOM／A-B 切换及会话结构尚未采集。见 [本机预检](../validation/task-lens-mvp/mac-preflight-2026-09-26.md)，保持未勾选。
   - 覆盖断言：AC02／AC03／AC04 的适配输入基线与 AC11 的环境信息；不替代产品真机验收。
   - 启动依赖：无；需要用户授权的已验证 Mac 环境或用户提供的脱敏资料。
   - 上下文入口：Spec §1、§5、§8、§11；用户已确认 CDP 验证通过这一前提。
@@ -233,7 +233,7 @@
   - 上下文入口：Spec §7、§8；平台启动器、会话记录 adapter、独立 runtime、CDP bridge、注入构建产物。
   - 执行边界：`src/cli/**`、`src/host/codex-runtime.ts`、`tests/integration/cli.test.ts`、`tests/standalone/codex-fallback.spec.ts`、`tests/unit/mac-probe.test.ts`、`docs/development.md`、`README.md`、运行与构建脚本；只组装已完成组件和处理有界接缝，不引入原生壳或自动更新。
   - 完成条件：提供 standalone／指定 CDP 端点／doctor 入口，明确构建产物；会话线索 adapter 仅注入 Codex 模式；未知端点不注入、已有运行中 Codex 不强退；停止工具清理自有资源但不声称关闭 Codex 的调试端口；文档说明安装、授权、日志位置、恢复普通启动与只验证过的平台。
-  - 验证方式：`pnpm build`、`pnpm exec vitest run tests/integration/cli.test.ts`；从干净安装运行 `pnpm start -- --standalone` 和 `pnpm doctor`；CDP 生产组合由 I2 证明。清理测试核对源文件／用户配置 hash 不变。
+  - 验证方式：`pnpm build`、`pnpm exec vitest run tests/integration/cli.test.ts`；从干净安装运行 `pnpm start -- --standalone` 和 `pnpm run doctor`；CDP 生产组合由 I2 证明。清理测试核对源文件／用户配置 hash 不变。
 
 - [ ] I2：在已验证 Mac 上验收完整 Codex 内嵌链路
   - 执行记录：待用户实际环境验收；已提供安全结构探测与 [I2 场景清单](../validation/task-lens-mvp/I2.md)。托管 macOS 的 Chromium CDP 测试不替代 Codex Desktop 验收。
@@ -291,3 +291,5 @@ T08 依据 M2 已实现有限的真实记录适配，而非固定返回“日志
 后续按任务写入真实状态、产物与验证引用。任务拆分保留原 ID 与验收义务，父项改为分组并说明计数口径变化；不靠拆分增加完成量。事项延期须引用 [TODO](../TODO.md) 中的 ID 与原始要求，不把移动或归档当作完成。
 
 2026-09-26：继续完成 T08／T10／T11／T12／T18／T19／T20，实现内嵌版并通过 [CI 36234589984](https://github.com/yzin-17/codex-task-lens/actions/runs/36234589984)。共 20 / 23；T02／I2／R1 保持未勾选。修复跨 CDP 客户端重连残留 world 与 CLI 就绪前关停竞态；未修改任务分母或引入二期估算。
+
+2026-09-26：通过 Remote Desktop Commander 完成本机安装、签名检查与核心回归，修正诊断命令分发和测试启动／异步断言问题。当前 Codex 普通启动未开放 CDP，未强退或重启；T02 部分补录，I2／R1 保持未通过。见 [实际 Mac 预检](../validation/task-lens-mvp/mac-preflight-2026-09-26.md)。
