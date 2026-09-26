@@ -39,7 +39,7 @@ async function expand(page: Page) { await page.getByLabel('展开任务清单', 
 async function bind(page: Page, file: string) {
   await page.getByRole('button', { name: '绑定 Task 文档', exact: true }).click();
   await page.getByLabel('本地绝对路径', { exact: true }).fill(file);
-  await page.getByRole('checkbox').check(); await page.getByRole('button', { name: '授权并预览', exact: true }).click();
+  await page.getByRole('button', { name: '预览文件', exact: true }).click();
   await page.getByRole('button', { name: '确认绑定', exact: true }).click();
 }
 test('real CDP + shared service + React: bind, watch atomic saves and isolate A→B→A', async () => {
@@ -243,7 +243,7 @@ test('multiple Markdown previews commit together and the closed trigger keeps up
     await writeFile(one, '- [ ] alpha\n- [x] done\n'); await writeFile(two, '- [ ] beta\n- [x] done\n');
     await expand(f.page); await f.page.getByRole('button', { name: '绑定 Task 文档', exact: true }).click();
     await f.page.getByLabel('本地绝对路径', { exact: true }).fill(`${one}\n${two}`);
-    await f.page.getByRole('checkbox').check(); await f.page.getByRole('button', { name: '授权并预览', exact: true }).click();
+    await f.page.getByRole('button', { name: '预览文件', exact: true }).click();
     await expect(f.page.getByLabel('已选摘要', { exact: true })).toContainText('已选 2 份');
     await f.page.getByRole('button', { name: '确认绑定', exact: true }).click();
     await expect(f.page.locator('.lens-trigger')).toContainText('进度 2/4');
@@ -288,12 +288,15 @@ test('mouse focus and typing remain inside Task Lens despite composer mouse hand
     await paths.pressSequentially('/fixture/one.md'); await paths.press('Enter'); await paths.pressSequentially('/fixture/two.md');
     await expect(paths).toHaveValue('/fixture/one.md\n/fixture/two.md');
     await expect(f.page.getByLabel('输入', { exact: true })).toHaveValue('');
-    const type = f.page.getByRole('radio', { name: '多文件', exact: true });
-    await type.click(); await expect(type).toBeFocused(); await type.press('ArrowLeft');
+    const type = f.page.getByRole('radio', { name: '文件', exact: true });
+    await type.click(); await expect(type).toBeFocused(); await type.press('ArrowRight');
     await expect(f.page.getByRole('dialog', { name: '任务清单', exact: true })).toBeVisible();
-    await expect(f.page.getByRole('radio', { name: '单文件', exact: true })).toHaveAttribute('aria-checked', 'true'); await paths.click(); await expect(paths).toBeFocused();
-    await paths.pressSequentially('/fixture/single.md'); await expect(paths).toHaveValue('/fixture/single.md');
-    await f.page.getByRole('checkbox').click(); await expect(f.page.getByRole('checkbox')).toBeChecked();
+    const directory = f.page.getByRole('radio', { name: '目录', exact: true });
+    await expect(directory).toHaveAttribute('aria-checked', 'true'); await paths.click(); await expect(paths).toBeFocused();
+    await paths.pressSequentially('/fixture/project'); await expect(paths).toHaveValue('/fixture/project');
+    await directory.focus(); await directory.press('ArrowLeft'); await expect(type).toHaveAttribute('aria-checked', 'true');
+    await paths.click(); await paths.pressSequentially('/fixture/single.md'); await expect(paths).toHaveValue('/fixture/single.md');
+    await expect(f.page.getByRole('region', { name: '手动添加', exact: true }).getByRole('checkbox')).toHaveCount(0);
     await f.page.getByLabel('关闭任务清单', { exact: true }).click();
     await f.page.getByLabel('输入', { exact: true }).click(); await f.page.keyboard.type('host still works');
     await expect(f.page.getByLabel('输入', { exact: true })).toHaveValue('host still works');
@@ -415,7 +418,7 @@ test('failed additions are visible in the top summary and cancellation preserves
     await expect(f.page.locator('.lens-trigger')).toHaveText('进度 1/2');
     await f.page.getByRole('button', { name: '管理文档', exact: true }).click();
     await f.page.getByLabel('本地绝对路径', { exact: true }).fill(missing); await f.page.getByRole('checkbox').check();
-    await f.page.getByRole('button', { name: '授权并预览', exact: true }).click();
+    await f.page.getByRole('button', { name: '预览文件', exact: true }).click();
     const errors = f.page.getByRole('button', { name: '1 份需处理', exact: true }); await expect(errors).toBeVisible();
     await expect(f.page.getByRole('button', { name: '确认更改', exact: true })).toBeDisabled();
     await errors.click(); await expect(f.page.locator('.lens-draft-files>li').last()).toBeFocused();
@@ -437,7 +440,7 @@ test('document summary and searchable scopes fit narrow light and dark popovers 
     for (const file of files) { await mkdir(path.dirname(file)); await writeFile(file, '# ' + '长文档标题'.repeat(12) + '\n\n## ' + '层级章节'.repeat(20) + '\n- [ ] task\n'); }
     await expand(f.page); await f.page.getByRole('button', { name: '绑定 Task 文档', exact: true }).click();
     await f.page.getByLabel('本地绝对路径', { exact: true }).fill(files.join('\n')); await f.page.getByRole('checkbox').check();
-    await f.page.getByRole('button', { name: '授权并预览', exact: true }).click();
+    await f.page.getByRole('button', { name: '预览文件', exact: true }).click();
     await expect(f.page.locator('.lens-selected-chips')).toContainText('one/tasks.md'); await expect(f.page.locator('.lens-selected-chips')).toContainText('two/tasks.md');
     await f.page.getByRole('button', { name: '管理已选文档', exact: true }).click();
     await f.page.getByRole('button', { name: '计数范围 one/tasks.md', exact: true }).click();
@@ -463,7 +466,7 @@ test('cancelling an in-flight preview cannot resurrect selected documents or wri
     f.service.preview = async (...args) => { started = true; await gate; try { return await preview(...args); } finally { finished = true; } };
     await expand(f.page); await f.page.getByRole('button', { name: '绑定 Task 文档', exact: true }).click();
     await f.page.getByLabel('本地绝对路径', { exact: true }).fill(file); await f.page.getByRole('checkbox').check();
-    await f.page.getByRole('button', { name: '授权并预览', exact: true }).click();
+    await f.page.getByRole('button', { name: '预览文件', exact: true }).click();
     await expect.poll(() => started).toBe(true);
     await f.page.getByRole('button', { name: '取消', exact: true }).click(); release();
     await expect.poll(() => finished).toBe(true);
@@ -472,4 +475,58 @@ test('cancelling an in-flight preview cannot resurrect selected documents or wri
     await expect(f.page.getByLabel('已选摘要', { exact: true })).toContainText('已选 0 份');
     await expect(f.page.getByRole('button', { name: '确认绑定', exact: true })).toBeDisabled();
   } finally { release(); await f.close(); }
+});
+
+
+test('unified file entry previews one or many paths without a checkbox or implicit reads', async () => {
+  const f = await fixture(); try {
+    const files = ['first.md', 'second.md'].map(name => path.join(f.root, name));
+    for (const file of files) await writeFile(file, '- [ ] pending\n- [x] done\n');
+    const authorized: string[] = [], previewed: string[] = [];
+    const authorize = f.service.authorize.bind(f.service), preview = f.service.preview.bind(f.service);
+    f.service.authorize = async (...args) => { authorized.push(args[0]); return authorize(...args); };
+    f.service.preview = async (...args) => { previewed.push(args[3]); return preview(...args); };
+    await expand(f.page); await f.page.getByRole('button', { name: '绑定 Task 文档', exact: true }).click();
+    const manual = f.page.getByRole('region', { name: '手动添加', exact: true });
+    await expect(manual.getByRole('radio')).toHaveText(['文件', '目录']);
+    await expect(manual.getByRole('radio', { name: '文件', exact: true })).toHaveAttribute('aria-checked', 'true');
+    await expect(manual.getByRole('checkbox')).toHaveCount(0);
+    const input = manual.getByLabel('本地绝对路径', { exact: true }), action = manual.getByRole('button', { name: '预览文件', exact: true });
+    await expect(action).toBeDisabled(); await input.fill(' \n \n'); await expect(action).toBeDisabled();
+    await input.fill(files[0]!); await expect(action).toBeEnabled();
+    expect(authorized).toEqual([]); expect(previewed).toEqual([]);
+    await action.click(); await expect(f.page.getByLabel('已选摘要', { exact: true })).toContainText('已选 1 份');
+    await input.fill(` ${files[0]}\r\n\r\n${files[1]}\n${files[1]}\n`); await action.click();
+    await expect(f.page.getByLabel('已选摘要', { exact: true })).toContainText('已选 2 份');
+    expect(authorized).toEqual(files); expect(previewed).toEqual(files);
+    expect(f.service.listMonitors()).toEqual([]); await expect(f.page.locator('.lens-trigger')).toHaveText('进度');
+    await f.page.getByRole('button', { name: '确认绑定', exact: true }).click();
+    await expect(f.page.locator('.lens-trigger')).toHaveText('进度 2/4');
+  } finally { await f.close(); }
+});
+
+test('directory entry reads only after search click and does not bind discovered documents automatically', async () => {
+  const f = await fixture(); try {
+    await writeFile(path.join(f.workspace, 'docs/tasks/directory.md'), '# Directory candidate\n- [ ] task\n');
+    const grants: { input: string; kind: string }[] = [];
+    const authorize = f.service.authorize.bind(f.service);
+    f.service.authorize = async (input, kind) => { grants.push({ input, kind }); return authorize(input, kind); };
+    await expand(f.page); await f.page.getByRole('button', { name: '绑定 Task 文档', exact: true }).click();
+    const manual = f.page.getByRole('region', { name: '手动添加', exact: true });
+    await manual.getByRole('radio', { name: '目录', exact: true }).click();
+    const action = manual.getByRole('button', { name: '查找文档', exact: true });
+    await expect(manual.getByRole('checkbox')).toHaveCount(0); await expect(action).toBeDisabled();
+    await manual.getByLabel('本地绝对路径', { exact: true }).fill(f.workspace);
+    await expect(action).toBeEnabled(); expect(grants).toEqual([]);
+    await expect(f.page.locator('.lens-candidate')).toHaveCount(0);
+    await action.click(); await expect(f.page.locator('.lens-candidate')).toHaveCount(1);
+    expect(grants).toEqual([{ input: f.workspace, kind: 'directory' }]);
+    await expect(f.page.getByLabel('已选摘要', { exact: true })).toContainText('已选 0 份');
+    expect(f.service.listMonitors()).toEqual([]);
+    await f.page.getByRole('button', { name: /^添加 Directory candidate 来源/ }).click();
+    await expect(f.page.getByLabel('已选摘要', { exact: true })).toContainText('已选 1 份');
+    expect(grants).toHaveLength(1);
+    await f.page.getByRole('button', { name: '取消', exact: true }).click();
+    await expect(f.page.locator('.lens-trigger')).toHaveText('进度'); expect(f.service.listMonitors()).toEqual([]);
+  } finally { await f.close(); }
 });

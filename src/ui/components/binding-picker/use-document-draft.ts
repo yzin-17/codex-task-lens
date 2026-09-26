@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { DOCUMENT_SCOPE, MAX_DOCUMENTS, documentsOf, type Binding, type CandidateResult, type Preview, type TaskScope, type ViewState } from '../../../contracts/index.js';
 import type { LensClient } from '../../client.js';
+import type { PathMode } from './path-modes.js';
 export type DraftRow = { key: string; path: string; original?: Binding; keep?: Binding; preview?: Preview; error?: string; grantId?: string };
 export const sameScope = (a: TaskScope, b: TaskScope) => JSON.stringify(a) === JSON.stringify(b);
 export const rowScope = (row: DraftRow): TaskScope => row.preview?.scope ?? row.keep?.scope ?? row.original?.scope ?? DOCUMENT_SCOPE;
@@ -8,7 +9,7 @@ const messageOf = (error: unknown) => error instanceof Error ? error.message : '
 export function useDocumentDraft(api: Pick<LensClient, 'call'>, view: ViewState, initialGrantId: string | undefined, onBound: (view: ViewState) => void) {
   const [base] = useState(() => ({ version: view.bindingVersion, bindings: documentsOf(view).map(item => item.binding) }));
   const [rows, setRows] = useState<DraftRow[]>(() => base.bindings.map(binding => ({ key: binding.id, path: binding.displayPath, keep: binding, original: binding })));
-  const [kind, setKind] = useState<'file' | 'files' | 'directory'>('files'), [input, setInput] = useState(''), [consent, setConsent] = useState(false);
+  const [kind, setKind] = useState<PathMode>('files'), [input, setInput] = useState('');
   const [grant, setGrant] = useState(initialGrantId), [candidates, setCandidates] = useState<CandidateResult | null>(null);
   const [busy, setBusy] = useState(false), [scanning, setScanning] = useState(false), [saving, setSaving] = useState(false);
   const [error, setError] = useState(''), [scanError, setScanError] = useState(''), [notice, setNotice] = useState(''), [clearConsent, setClearConsent] = useState(false);
@@ -49,20 +50,21 @@ export function useDocumentDraft(api: Pick<LensClient, 'call'>, view: ViewState,
           next.push({ key: original?.id ?? crypto.randomUUID(), path: preview.path, preview, original, grantId: accessId }); added++;
         } catch (failure) { if (signal.aborted || !live.current) return; next.push({ key: crypto.randomUUID(), path, grantId: accessId, error: messageOf(failure) }); }
       }
-      if (live.current && !signal.aborted) { update(next); setInput(''); setConsent(false); setClearConsent(false); setNotice(added ? `已添加 ${added} 份到待确认清单` : '请处理读取失败的文档'); }
+      if (live.current && !signal.aborted) { update(next); setInput(''); setClearConsent(false); setNotice(added ? `已添加 ${added} 份到待确认清单` : '请处理读取失败的文档'); }
     });
   }
-  async function authorize() {
-    if (!consent || occupied.current || savingRef.current) return;
-    if (kind !== 'directory') { await add(kind === 'file' ? [input] : input.split('\n')); return; }
+  async function previewInput() {
+    // This explicit preview/search action authorizes only the displayed paths. Typing never reads files.
+    if (!input.trim() || occupied.current || savingRef.current) return;
+    if (kind === 'files') { await add(input.split(/\r?\n/)); return; }
     await run(async signal => {
       const access = await api.call('authorize', { path: input.trim(), kind: 'directory', consent: true }, signal);
       if (signal.aborted || !live.current) return;
-      setGrant(access.id); setConsent(false); setInput(''); await scan(access.id);
+      setGrant(access.id); setInput(''); await scan(access.id);
     });
   }
   async function chooseFiles() {
-    await run(async signal => { const result = await api.call('pickMarkdownFiles', { consent: true }, signal); if (!signal.aborted && live.current && !result.cancelled) { setKind('files'); setInput(result.paths.join('\n')); setConsent(false); } });
+    await run(async signal => { const result = await api.call('pickMarkdownFiles', { consent: true }, signal); if (!signal.aborted && live.current && !result.cancelled) { setKind('files'); setInput(result.paths.join('\n')); } });
   }
   async function repreview(row: DraftRow, scope: TaskScope = rowScope(row)) {
     await run(async signal => {
@@ -89,7 +91,7 @@ export function useDocumentDraft(api: Pick<LensClient, 'call'>, view: ViewState,
     } catch (failure) { if (live.current) setError(messageOf(failure)); }
     finally { savingRef.current = false; if (live.current) setSaving(false); }
   }
-  return { rows, kind, setKind, input, setInput, consent, setConsent, grant, candidates, scanning, scanError,
+  return { rows, kind, setKind, input, setInput, grant, candidates, scanning, scanError,
     busy, saving, error, notice, clearConsent, setClearConsent, added, removed, scopeChanged, dirty, errors,
-    scan, add, authorize, chooseFiles, repreview, remove, save, hasBinding: base.bindings.length > 0 };
+    scan, add, previewInput, chooseFiles, repreview, remove, save, hasBinding: base.bindings.length > 0 };
 }

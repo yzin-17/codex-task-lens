@@ -24,7 +24,7 @@ export function DocumentManager({ api, view, initialGrantId, onBound, onCancel }
     container.scrollTop += rect.top - viewport.top - 8; row.focus({ preventScroll: true });
   }
   useLayoutEffect(() => { if (scroller.current) scroller.current.scrollTop = positions.current[page]; if (targetRow.current) { reveal(targetRow.current); targetRow.current = null; } }, [page]);
-  function focusDirectory() { draft.setKind('directory'); draft.setConsent(false); draft.setInput(''); requestAnimationFrame(() => pathInput.current?.focus({ preventScroll: true })); }
+  function focusDirectory() { draft.setKind('directory'); draft.setInput(''); requestAnimationFrame(() => pathInput.current?.focus({ preventScroll: true })); }
   const changes = `新增 ${draft.added} 份，移除 ${draft.removed} 份${draft.scopeChanged ? `，范围更改 ${draft.scopeChanged} 份` : ''}`;
   const locked = busy || saving;
   return <section className="lens-document-manager" aria-label="选择 Task 文档" data-page={page}>
@@ -58,13 +58,13 @@ export function DocumentManager({ api, view, initialGrantId, onBound, onCancel }
         </section>
         <section className="lens-manual-add" aria-label="手动添加">
           <div className="lens-section-heading"><h3>手动添加</h3><button type="button" disabled={locked} onClick={() => { void draft.chooseFiles(); }}>选择文件…</button></div>
-          <form onSubmit={event => { event.preventDefault(); void draft.authorize(); }}>
-            <PathModes value={draft.kind} disabled={locked} onChange={value => { if (value !== draft.kind) { draft.setKind(value); draft.setInput(''); draft.setConsent(false); } }} />
+          <form onSubmit={event => { event.preventDefault(); void draft.previewInput(); }}>
+            <PathModes value={draft.kind} disabled={locked} onChange={value => { if (value !== draft.kind) { draft.setKind(value); draft.setInput(''); } }} />
             <label>{draft.kind === 'files' ? '本地绝对路径（每行一个）' : '本地绝对路径'}{draft.kind === 'files'
-              ? <textarea ref={node => { pathInput.current = node; }} aria-label="本地绝对路径" spellCheck={false} rows={3} value={draft.input} disabled={locked} placeholder={'/Users/name/project/docs/tasks/a.md\n/Users/name/project/docs/tasks/b.md'} onChange={event => { draft.setInput(event.target.value); draft.setConsent(false); }} />
-              : <input ref={node => { pathInput.current = node; }} aria-label="本地绝对路径" autoComplete="off" value={draft.input} disabled={locked} placeholder={draft.kind === 'directory' ? '/Users/name/project' : '/Users/name/project/docs/tasks/a.md'} onChange={event => { draft.setInput(event.target.value); draft.setConsent(false); }} />}</label>
-            <label className="lens-consent"><input type="checkbox" checked={draft.consent} disabled={locked} onChange={event => draft.setConsent(event.target.checked)} />{draft.kind === 'directory' ? '授权读取此目录内的 Markdown' : '授权读取以上文件，不扩展到父目录'}</label>
-            <button type="submit" disabled={!draft.consent || !draft.input.trim() || locked}>{draft.kind === 'directory' ? '授权并查找' : '授权并预览'}</button>
+              ? <textarea ref={node => { pathInput.current = node; }} aria-label="本地绝对路径" spellCheck={false} rows={3} value={draft.input} disabled={locked} placeholder={'/Users/name/project/docs/tasks/a.md\n/Users/name/project/docs/tasks/b.md'} onChange={event => { draft.setInput(event.target.value); }} />
+              : <input ref={node => { pathInput.current = node; }} aria-label="本地绝对路径" autoComplete="off" value={draft.input} disabled={locked} placeholder="/Users/name/project" onChange={event => { draft.setInput(event.target.value); }} />}</label>
+            <p className="lens-muted lens-read-hint">{draft.kind === 'directory' ? '点击查找，仅扫描此目录内的 Markdown。' : '支持一个或多个文件；点击预览，仅只读所列路径。'}</p>
+            <button type="submit" disabled={!draft.input.trim() || locked}>{draft.kind === 'directory' ? '查找文档' : '预览文件'}</button>
           </form>
         </section>
       </>}

@@ -1,5 +1,5 @@
-export type PathMode = 'file' | 'files' | 'directory';
-const modes: { value: PathMode; label: string }[] = [{ value: 'file', label: '单文件' }, { value: 'files', label: '多文件' }, { value: 'directory', label: '目录' }];
+export type PathMode = 'files' | 'directory';
+const modes: { value: PathMode; label: string }[] = [{ value: 'files', label: '文件' }, { value: 'directory', label: '目录' }];
 export function PathModes({ value, disabled, onChange }: { value: PathMode; disabled: boolean; onChange: (value: PathMode) => void }) {
   return <div className="lens-path-modes" role="radiogroup" aria-label="路径类型">
     {modes.map((mode, index) => <button key={mode.value} type="button" role="radio" aria-checked={mode.value === value} tabIndex={mode.value === value ? 0 : -1} disabled={disabled}
