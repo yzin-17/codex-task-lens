@@ -428,3 +428,48 @@ test('failed additions are visible in the top summary and cancellation preserves
     expect(await readFile(file, 'utf8')).toBe('- [ ] pending\n- [x] done\n');
   } finally { await f.close(); }
 });
+
+test('document summary and searchable scopes fit narrow light and dark popovers with duplicate filenames', async () => {
+  const f = await fixture(); try {
+    await f.page.setViewportSize({ width: 520, height: 740 });
+    await f.page.locator('.pane').evaluate(node => { (node as HTMLElement).style.width = '390px'; });
+    const files = ['one', 'two'].map(name => path.join(f.root, name, 'tasks.md'));
+    for (const file of files) { await mkdir(path.dirname(file)); await writeFile(file, '# ' + '长文档标题'.repeat(12) + '\n\n## ' + '层级章节'.repeat(20) + '\n- [ ] task\n'); }
+    await expand(f.page); await f.page.getByRole('button', { name: '绑定 Task 文档', exact: true }).click();
+    await f.page.getByLabel('本地绝对路径', { exact: true }).fill(files.join('\n')); await f.page.getByRole('checkbox').check();
+    await f.page.getByRole('button', { name: '授权并预览', exact: true }).click();
+    await expect(f.page.locator('.lens-selected-chips')).toContainText('one/tasks.md'); await expect(f.page.locator('.lens-selected-chips')).toContainText('two/tasks.md');
+    await f.page.getByRole('button', { name: '管理已选文档', exact: true }).click();
+    await f.page.getByRole('button', { name: '计数范围 one/tasks.md', exact: true }).click();
+    for (const dark of [true, false]) {
+      await f.page.evaluate(value => document.documentElement.classList.toggle('dark', value), dark);
+      await expect(f.page.locator('[data-task-lens-host]')).toHaveAttribute('data-theme', dark ? 'dark' : 'light');
+      const geometry = await f.page.locator('.lens-document-manager').evaluate(node => {
+        const top = node.querySelector('.lens-selected-summary')!.getBoundingClientRect(), foot = node.querySelector('.lens-manager-footer')!.getBoundingClientRect(), box = node.getBoundingClientRect();
+        const menu = node.querySelector('.lens-scope-menu')!;
+        return { fits: node.scrollWidth <= node.clientWidth && menu.scrollWidth <= menu.clientWidth, rails: top.top >= box.top && foot.bottom <= box.bottom, bg: getComputedStyle(node).backgroundColor };
+      });
+      expect(geometry.fits).toBe(true); expect(geometry.rails).toBe(true); expect(geometry.bg).toBe(dark ? 'rgb(36, 37, 40)' : 'rgb(255, 255, 255)');
+    }
+  } finally { await f.close(); }
+});
+
+test('cancelling an in-flight preview cannot resurrect selected documents or write a binding', async () => {
+  const f = await fixture(); let release: () => void = () => undefined;
+  try {
+    const file = path.join(f.root, 'late.md'); await writeFile(file, '- [ ] late task\n');
+    let started = false, finished = false;
+    const gate = new Promise<void>(resolve => { release = resolve; }), preview = f.service.preview.bind(f.service);
+    f.service.preview = async (...args) => { started = true; await gate; try { return await preview(...args); } finally { finished = true; } };
+    await expand(f.page); await f.page.getByRole('button', { name: '绑定 Task 文档', exact: true }).click();
+    await f.page.getByLabel('本地绝对路径', { exact: true }).fill(file); await f.page.getByRole('checkbox').check();
+    await f.page.getByRole('button', { name: '授权并预览', exact: true }).click();
+    await expect.poll(() => started).toBe(true);
+    await f.page.getByRole('button', { name: '取消', exact: true }).click(); release();
+    await expect.poll(() => finished).toBe(true);
+    await expect(f.page.locator('.lens-trigger')).toHaveText('进度'); expect(f.service.listMonitors()).toEqual([]);
+    await f.page.getByRole('button', { name: '绑定 Task 文档', exact: true }).click();
+    await expect(f.page.getByLabel('已选摘要', { exact: true })).toContainText('已选 0 份');
+    await expect(f.page.getByRole('button', { name: '确认绑定', exact: true })).toBeDisabled();
+  } finally { release(); await f.close(); }
+});

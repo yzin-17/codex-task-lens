@@ -39,7 +39,6 @@ export function DocumentManager({ api, view, initialGrantId, onBound, onCancel }
       </div>
     </header>
     <div className="lens-manager-scroll" ref={scroller}>
-      {draft.error && <p role="alert" className="lens-manager-error">{draft.error}；原绑定保持不变。</p>}
       {page === 'add' && <>
         <section className="lens-manager-candidates" aria-label="候选文档">
           <div className="lens-section-heading"><h3>可添加文档</h3><button type="button" className="lens-text-button" disabled={!draft.grant || draft.scanning || locked} onClick={() => { void draft.scan(); }}>{draft.scanning ? '扫描中…' : '重新扫描'}</button></div>
@@ -86,6 +85,7 @@ export function DocumentManager({ api, view, initialGrantId, onBound, onCancel }
       </section>}
     </div>
     <footer className="lens-manager-footer">
+      {draft.error && <p role="alert" className="lens-manager-error lens-manager-global-error">{draft.error}；原绑定保持不变。</p>}
       <span className="lens-sr-only" role="status" aria-live="polite">{draft.notice}</span>
       {busy && <p className="lens-muted" role="status">正在读取文档或等待文件选择…</p>}
       {!rows.length && draft.hasBinding && <label className="lens-consent"><input type="checkbox" checked={draft.clearConsent} disabled={locked} onChange={event => draft.setClearConsent(event.target.checked)} />确认解除此对话的全部文档绑定</label>}
