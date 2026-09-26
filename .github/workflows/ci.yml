@@ -32,11 +32,9 @@ jobs:
           if [ "$RUNNER_OS" = "macOS" ]; then sw_vers; fi
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint && pnpm typecheck && pnpm test && pnpm build
-      - name: Install browser for production panel tests
-        if: runner.os == 'Linux'
+      - name: Install browser for production panel and CDP tests
         run: pnpm exec playwright install --with-deps chromium
-      - name: Verify UI and real standalone document flow
-        if: runner.os == 'Linux'
+      - name: Verify UI, real document flow and isolated CDP transport
         run: pnpm test:ui
       - uses: actions/upload-artifact@v4
         if: failure()
@@ -46,5 +44,5 @@ jobs:
             playwright-report/
             test-results/
           retention-days: 3
-# macOS here verifies core filesystem and HTTP behavior on a hosted runner.
-# It has no user's Codex app, no authorized CDP endpoint, and is NOT I2 acceptance.
+# Both runners exercise real files, browsers and Chromium CDP with synthetic DOM.
+# Neither has the user's authorized Codex Desktop conversations; this is NOT I2.
