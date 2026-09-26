@@ -10,6 +10,7 @@ assert(files.includes(`Codex-Task-Lens-${version}-win-x64-Setup.exe`)); assert(f
 for (const [platform, arch] of [['darwin', 'arm64'], ['darwin', 'x64'], ['win32', 'x64']]) {
   const report = JSON.parse(await readFile(path.join(directory, `packaged-smoke-${platform}-${arch}.json`), 'utf8'));
   assert(report.passed && report.version === version && report.platform === platform && report.arch === arch);
+  if (process.env.GITHUB_SHA) assert.equal(report.commit, process.env.GITHUB_SHA, 'Artifact commit mismatch');
 }
 const lines = [];
 for (const name of files) {
