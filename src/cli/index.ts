@@ -22,11 +22,12 @@ export function parseArgs(args: string[]): CliOptions {
     const key = values[arg]; if (key) { const value = args[++i]; if (!value || !path.isAbsolute(value) || value.includes('\0')) throw new LensError('invalid_request', `${arg} 需要绝对路径`); options[key] = value; continue; }
     throw new LensError('invalid_request', '不支持的参数；请查看 --help');
   }
-  if (options.standalone && (options.cdpPort || options.launch || options.sessionRoot || options.workspace)) throw new LensError('invalid_request', '独立模式与 Codex 参数不能同时使用');
+  if (options.standalone && (options.cdpPort || options.launch || options.sessionRoot || options.workspace || options.appPath || options.doctor)) throw new LensError('invalid_request', '独立模式与 Codex 参数不能同时使用');
   if (options.sessionRoot && !options.allowSessionRead) throw new LensError('permission_denied', '读取会话须同时指定 --allow-session-read');
   if (options.allowSessionRead && !options.sessionRoot) throw new LensError('invalid_request', '请明确指定 --session-root；不默认读取会话');
   return options;
 }
+export function wantsCodex(options: CliOptions): boolean { return !options.standalone && !!(options.cdpPort || options.launch || options.appPath || options.workspace || options.sessionRoot); }
 export async function doctor(options: CliOptions) {
   const app = await discoverApp(options.appPath);
   const endpoint = await verifyEndpoint(app, options.cdpPort ?? 9341);
@@ -37,9 +38,10 @@ async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.help) { console.log(HELP); return; }
   if (options.doctor) { console.log(JSON.stringify(await doctor(options), null, 2)); return; }
-  const runtime = options.standalone || (!options.cdpPort && !options.launch) ? await startStandalone(options) : await startCodex({ ...options, cdpPort: options.cdpPort ?? 9341 });
+  const connected = wantsCodex(options) ? await startCodex({ ...options, cdpPort: options.cdpPort ?? 9341 }) : null;
+  const runtime = connected ?? await startStandalone(options);
   console.log(`Codex Task Lens 已启动：${runtime.origin}（访问凭证未写入日志）`);
-  if ('status' in runtime) console.log(runtime.status().diagnostic);
+  if (connected) console.log(connected.status().diagnostic);
   const stop = () => { process.off('SIGINT', stop); process.off('SIGTERM', stop); void runtime.close().catch(() => { console.error('关闭工具失败'); process.exitCode = 1; }); };
   process.once('SIGINT', stop); process.once('SIGTERM', stop);
 }
