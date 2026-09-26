@@ -12,10 +12,22 @@ export function EmbeddedPanel({ client, initialGrantId }: { client: EmbeddedClie
   useEffect(() => { const abort = new AbortController(); void client.watch(setView, setConnection, abort.signal); return () => abort.abort(); }, [client]);
   const close = (restoreFocus = true) => { popup.current?.hidePopover(); if (restoreFocus) trigger.current?.focus({ preventScroll: true }); };
   useEffect(() => {
-    const node = popup.current!;
+    const node = popup.current!, button = trigger.current!;
+    let outside = false, frame = 0, afterFrame = 0;
+    const pointer = (event: PointerEvent) => { outside = !event.composedPath().includes(node) && !event.composedPath().includes(button); };
+    const before = (event: Event) => {
+      cancelAnimationFrame(frame); cancelAnimationFrame(afterFrame);
+      const transition = event as ToggleEvent;
+      if (transition.newState === 'open') { outside = false; return; }
+      // The host can refocus its editor during Escape. Restore after that event,
+      // but never steal focus from an outside click or a newly selected conversation.
+      if (!outside && transition.oldState === 'open') frame = requestAnimationFrame(() => {
+        afterFrame = requestAnimationFrame(() => { if (!outside && button.isConnected && !node.matches(':popover-open')) button.focus({ preventScroll: true }); });
+      });
+    };
     const toggle = () => { const showing = node.matches(':popover-open'); setOpen(showing); if (!showing) { setTab('tasks'); setMessage(''); } };
-    node.addEventListener('toggle', toggle);
-    return () => { node.removeEventListener('toggle', toggle); if (node.matches(':popover-open')) node.hidePopover(); };
+    window.addEventListener('pointerdown', pointer, true); node.addEventListener('beforetoggle', before); node.addEventListener('toggle', toggle);
+    return () => { cancelAnimationFrame(frame); cancelAnimationFrame(afterFrame); window.removeEventListener('pointerdown', pointer, true); node.removeEventListener('beforetoggle', before); node.removeEventListener('toggle', toggle); if (node.matches(':popover-open')) node.hidePopover(); };
   }, [client]);
   useLayoutEffect(() => {
     if (!open || !popup.current || !trigger.current) return;
@@ -45,7 +57,7 @@ export function EmbeddedPanel({ client, initialGrantId }: { client: EmbeddedClie
     catch (failure) { setMessage(failure instanceof Error ? failure.message : '无法打开源文件'); }
   }
   return <>
-    <button type="button" ref={trigger} className="lens-trigger" aria-label="展开任务清单" aria-haspopup="dialog" aria-expanded={open} aria-controls={titleId + '-popup'} title={`${progress.label}${progress.suffix ? ' · ' + progress.suffix : ''} · 点击查看任务文档`} popoverTarget={titleId + '-popup'} popoverTargetAction="toggle">
+    <button type="button" ref={trigger} className="lens-trigger" aria-label="展开任务清单" aria-haspopup="dialog" aria-expanded={open} aria-controls={titleId + '-popup'} title={`${progress.label}${progress.suffix ? ' · ' + progress.suffix : ''} · 点击查看任务文档`} onClick={event => event.currentTarget.focus({ preventScroll: true })} popoverTarget={titleId + '-popup'} popoverTargetAction="toggle">
       <svg aria-hidden="true" width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="m3 5 1.5 1.5L7 4M10 5h7M3 11h4m3 0h7M3 16h4m3 0h7" /></svg>
       <span>{progress.label}</span>{progress.warning && <span className="lens-trigger-warning" title={progress.suffix || '连接异常'} aria-label={progress.suffix || '连接异常'}>!</span>}
     </button>
