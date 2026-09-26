@@ -4,7 +4,7 @@
 
 本地读取 Markdown Task 文档，逐项展示 **已完成／未完成**。独立于任何 Skill、Hooks、模型登记命令和 app-server；不修改 Task 文档，不推断代码是否完成，不估算百分比或 ETA。
 
-> Alpha：已提供 macOS CDP 接入、对话识别、内嵌面板与独立浏览器面板。受控 Chromium 的注入测试不等于某个 Codex Desktop 版本的真机验收；实际环境与剩余门禁见 [兼容记录](docs/compatibility/macos.md) 和 [实施台账](docs/tasks/task-lens-mvp.md)。非 OpenAI 官方产品。
+> Alpha：已提供 macOS CDP 接入、对话识别、内嵌面板与独立浏览器面板。受控 Chromium 测试不等于某个 Codex Desktop 版本的真机验收；实际环境与剩余门禁见 [兼容记录](docs/compatibility/macos.md) 和 [实施台账](docs/tasks/task-lens-mvp.md)。非 OpenAI 官方产品。
 
 ## 安装与构建
 
@@ -36,7 +36,7 @@ pnpm start -- --cdp-port 9341 --workspace "$PWD" \
   --session-root "${CODEX_HOME:-$HOME/.codex}" --allow-session-read
 ```
 
-仅适配已声明的 rollout JSONL 格式与明确文件引用。日志缺失、新格式或路径有歧义时，仍可扫描授权目录、手动绑定；不会猜“最近活动的会话就是当前对话”。
+仅适配已声明的 rollout JSONL 格式与明确文件引用。日志缺失、无法打开、新格式或路径有歧义时，仍可扫描授权目录、手动绑定；不会猜“最近活动的会话就是当前对话”。已授权目录初始化失败会显示降级诊断，不再导致整个工具退出；修复数据源后重新启动恢复线索。
 
 ## 独立模式
 
@@ -58,17 +58,29 @@ macOS 自动打开本地浏览器面板。可手动选择已有绑定或独立�
 
 工具只写自己的状态目录（默认 `~/Library/Application Support/CodexTaskLens/`），不写 `.app`、`app.asar`、登录文件或模型配置；不读取 `auth.json`，不上传聊天和文件。不要同时启动多个工具实例接管同一个 Codex renderer。
 
-## 验证与文档
+## 验证
 
 ```bash
 pnpm lint && pnpm typecheck && pnpm test && pnpm build
 pnpm exec playwright install chromium
 pnpm test:ui
-# 在用户授权的 Mac 上只采集脱敏结构，不发送消息或修改对话
+# 只读结构探测
 pnpm test:mac -- --enable --probe-only --cdp-port 9341
 ```
 
-最后一条是 **结构探测**，不是 I2 全部验收通过。探测报告保存在忽略提交的 `test-results/`；无授权或无兼容环境时失败，不用跳过冒充成功。完整真机验收操作见 [I2 清单](docs/validation/task-lens-mvp/I2.md)。
+结构探测不代表 I2 完整通过。需要实际验收时，先停止 Task Lens（保留 Codex 运行），在干净工作树的交互终端执行：
+
+```bash
+pnpm build
+pnpm test:mac:acceptance -- --enable --interactive --cdp-port 9341
+```
+
+向导创建独立临时仓库、两个 worktree 和 Task 文档，引导 A→B→A 真实面板绑定；自动测试文件生命周期、20 次可见更新时延、50 次工具启停清理与独立降级。侧聊、宿主操作等场景逐项记录人工 PASS／FAIL／SKIP；跳过不算通过。可选日志来源授权与完整步骤见 [I2 向导说明](docs/validation/task-lens-mvp/I2.md)。
+
+报告保存在 `test-results/mac-acceptance-*/report.json` 和 `report.md`，包含原始测量、版本、构建指纹与脱敏身份，不含正文或凭证。不自动上传、不修改日常绑定、不勾选 Task；验收向导只修改它创建的临时文件。受控 CI 验证向导功能，不冒充用户 Mac 结果。
+
+## 文档
 
 - [一期 Spec](docs/specs/2026-09-26-task-lens-mvp.md) · [Task 台账](docs/tasks/task-lens-mvp.md) · [验证索引](docs/validation/task-lens-mvp/README.md)
 - [开发与运行说明](docs/development.md) · [适配契约来源](docs/compatibility/adapter-contracts.md) · [后续 TODO](docs/TODO.md)
+- [I2 验收向导](docs/validation/task-lens-mvp/I2.md) · [验收工具测试](docs/validation/task-lens-mvp/I2-runner.md) · [R1 状态](docs/validation/task-lens-mvp/R1.md)
