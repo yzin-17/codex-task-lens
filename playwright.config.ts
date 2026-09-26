@@ -5,8 +5,8 @@ export default defineConfig({
   workers: process.env.CI ? 2 : undefined,
   use: { browserName: 'chromium', headless: true, trace: 'retain-on-failure' },
   webServer: [
-    { command: 'pnpm exec vite preview --host 127.0.0.1 --port 4173 --strictPort', url: 'http://127.0.0.1:4173', reuseExistingServer: false },
-    { command: 'pnpm exec vite --config vite.fixtures.config.ts', url: 'http://127.0.0.1:4174', reuseExistingServer: false }
+    { command: `${JSON.stringify(process.execPath)} node_modules/vite/bin/vite.js preview --host 127.0.0.1 --port 4173 --strictPort`, url: 'http://127.0.0.1:4173', reuseExistingServer: false },
+    { command: `${JSON.stringify(process.execPath)} node_modules/vite/bin/vite.js --config vite.fixtures.config.ts`, url: 'http://127.0.0.1:4174', reuseExistingServer: false }
   ],
   reporter: [['list'], ['html', { open: 'never' }]],
 });

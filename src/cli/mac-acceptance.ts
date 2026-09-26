@@ -117,7 +117,7 @@ export async function runMacAcceptance(args: string[]): Promise<number> {
       report.environment = { platform: process.platform, architecture: process.arch, macOS: (await command('/usr/bin/sw_vers', ['-productVersion'])).stdout.trim(), codexVersion: app.version.slice(0, 128), node: process.version, signedEndpoint: true, commit: /^[a-f0-9]{40}$/.test(commit) ? commit : null, artifactHash: await artifactFingerprint(), cleanWorktree: !dirty };
       if (dirty) throw new Error('Commit or stash code changes before acceptance');
     }))) {
-      console.log('请核对：仅保留一个 Codex 主窗口；已停止其他 Task Lens；pnpm doctor 通过；仓库已构建且无未提交修改。'); return 2;
+      console.log('请核对：仅保留一个 Codex 主窗口；已停止其他 Task Lens；pnpm run doctor 通过；仓库已构建且无未提交修改。'); return 2;
     }
     fixtureRoot = await realpath(await mkdtemp(path.join(tmpdir(), 'codex-task-lens-acceptance-')));
     const workA = path.join(fixtureRoot, 'worktree-a'), workB = path.join(fixtureRoot, 'worktree-b');

@@ -21,7 +21,7 @@ pnpm build
 连接你已开放的本机 CDP 端口，不会自动退出或重启 Codex：
 
 ```bash
-pnpm doctor -- --cdp-port 9341
+pnpm run doctor -- --cdp-port 9341
 pnpm start -- --cdp-port 9341 --workspace "$PWD"
 ```
 

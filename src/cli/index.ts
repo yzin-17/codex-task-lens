@@ -33,7 +33,7 @@ export async function doctor(options: CliOptions) {
   const endpoint = await verifyEndpoint(app, options.cdpPort ?? 9341);
   return { platform: process.platform, architecture: process.arch, node: process.version, app: { bundleId: app.bundleId, version: app.version, executableName: path.basename(app.executable), signatureVerified: true }, endpoint: { port: endpoint.port, targets: endpoint.targets.length, loopbackAndOwnerVerified: true }, status: endpoint.targets.length ? 'endpoint_ready' : 'no_renderer', note: '端点检查不等于任务清单真机验收通过；未读取对话正文或登录文件' };
 }
-export const HELP = `Codex Task Lens\n  pnpm start -- --standalone\n  pnpm start -- --cdp-port 9341 [--app /Applications/Codex.app]\n  pnpm doctor -- --cdp-port 9341 [--app /Applications/Codex.app]\n  --launch-codex      明确调试启动；运行中的 Codex 不被强退\n  --workspace /path  授权读取该目录的 Markdown，作为初始候选范围\n  --session-root /path --allow-session-read  明确授权读取 rollout 路径线索\n  --source-id name   稳定的 Codex profile 标识（默认 codex-default）\n  --data-dir /path   工具状态目录；不修改项目或 Codex 配置\n  --no-open          不打开独立面板（内嵌入口仍可用）\nCtrl+C 停止本工具；不会关闭 Codex 仍开放的 CDP 端口。\n`;
+export const HELP = `Codex Task Lens\n  pnpm start -- --standalone\n  pnpm start -- --cdp-port 9341 [--app /Applications/Codex.app]\n  pnpm run doctor -- --cdp-port 9341 [--app /Applications/Codex.app]\n  --launch-codex      明确调试启动；运行中的 Codex 不被强退\n  --workspace /path  授权读取该目录的 Markdown，作为初始候选范围\n  --session-root /path --allow-session-read  明确授权读取 rollout 路径线索\n  --source-id name   稳定的 Codex profile 标识（默认 codex-default）\n  --data-dir /path   工具状态目录；不修改项目或 Codex 配置\n  --no-open          不打开独立面板（内嵌入口仍可用）\nCtrl+C 停止本工具；不会关闭 Codex 仍开放的 CDP 端口。\n`;
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.help) { console.log(HELP); return; }
@@ -46,4 +46,4 @@ async function main() {
   console.log(`Codex Task Lens 已启动：${runtime.origin}（访问凭证未写入日志）`);
   if (connected) console.log(connected.status().diagnostic);
 }
-if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) void main().catch(error => { console.error(error instanceof LensError ? error.message : 'Task Lens 操作失败；运行 pnpm doctor 检查环境'); process.exitCode = 1; });
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) void main().catch(error => { console.error(error instanceof LensError ? error.message : 'Task Lens 操作失败；运行 pnpm run doctor 检查环境'); process.exitCode = 1; });

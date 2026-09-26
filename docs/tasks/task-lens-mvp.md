@@ -27,7 +27,7 @@
 | `pnpm exec playwright test <精确测试路径>` | UI 和真实本地面板测试；配置由 T01 建立、fixture 由使用任务维护 |
 | `pnpm dev:standalone` | T17 建立，启动真实应用服务与本地面板，不需要 Codex |
 | `pnpm start -- --standalone` | T17 已建立构建后独立入口 |
-| `pnpm start -- --cdp-port 9341`、`pnpm doctor` | T20 已建立构建后内嵌／诊断入口；真实 Codex 组合由 I2 验收 |
+| `pnpm start -- --cdp-port 9341`、`pnpm run doctor` | T20 已建立构建后内嵌／诊断入口；真实 Codex 组合由 I2 验收 |
 | `pnpm test:mac -- --enable --probe-only` | 只采集真实环境与脱敏结构；不发送消息、不重启。未加 `--enable` 失败；不加 `--probe-only` 会明确报告完整 I2 未完成并非零退出 |
 
 最终记录统一包含：任务 ID、状态、代码／文档提交、执行命令、环境、关键断言结果、证据位置、阻塞与下一步。证据文档按任务写入 `docs/validation/task-lens-mvp/<ID>.md`，不提交私人日志或带凭证的端点。
@@ -233,7 +233,7 @@
   - 上下文入口：Spec §7、§8；平台启动器、会话记录 adapter、独立 runtime、CDP bridge、注入构建产物。
   - 执行边界：`src/cli/**`、`src/host/codex-runtime.ts`、`tests/integration/cli.test.ts`、`tests/standalone/codex-fallback.spec.ts`、`tests/unit/mac-probe.test.ts`、`docs/development.md`、`README.md`、运行与构建脚本；只组装已完成组件和处理有界接缝，不引入原生壳或自动更新。
   - 完成条件：提供 standalone／指定 CDP 端点／doctor 入口，明确构建产物；会话线索 adapter 仅注入 Codex 模式；未知端点不注入、已有运行中 Codex 不强退；停止工具清理自有资源但不声称关闭 Codex 的调试端口；文档说明安装、授权、日志位置、恢复普通启动与只验证过的平台。
-  - 验证方式：`pnpm build`、`pnpm exec vitest run tests/integration/cli.test.ts`；从干净安装运行 `pnpm start -- --standalone` 和 `pnpm doctor`；CDP 生产组合由 I2 证明。清理测试核对源文件／用户配置 hash 不变。
+  - 验证方式：`pnpm build`、`pnpm exec vitest run tests/integration/cli.test.ts`；从干净安装运行 `pnpm start -- --standalone` 和 `pnpm run doctor`；CDP 生产组合由 I2 证明。清理测试核对源文件／用户配置 hash 不变。
 
 - [ ] I2：在已验证 Mac 上验收完整 Codex 内嵌链路
   - 执行记录：待用户实际环境验收；已提供安全结构探测与 [I2 场景清单](../validation/task-lens-mvp/I2.md)。托管 macOS 的 Chromium CDP 测试不替代 Codex Desktop 验收。

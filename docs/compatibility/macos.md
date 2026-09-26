@@ -19,7 +19,7 @@
 在已开放端口的 Mac 上构建后执行，不退出或重启 Codex：
 
 ```bash
-pnpm doctor -- --cdp-port 9341
+pnpm run doctor -- --cdp-port 9341
 pnpm test:mac -- --enable --probe-only --cdp-port 9341
 ```
 
