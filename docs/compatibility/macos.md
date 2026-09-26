@@ -14,6 +14,10 @@
 
 当前没有可公开宣称完整通过的 Codex Desktop 版本组合；T02／I2／R1 保持待验收。
 
+## 2026-09-26 实际 Mac 预检
+
+已通过授权远程连接确认：macOS 26.6.2（25G83）／arm64、Node 24.18.0、项目 pnpm 10.28.2，实际应用为 `/Applications/ChatGPT.app`，Codex 26.924.22138／`com.openai.codex`，应用与可执行文件签名通过。本次实例未开放 CDP，尚不能采集 DOM 和执行 I2。完整命令、结果及修复见 [本机预检](../validation/task-lens-mvp/mac-preflight-2026-09-26.md)。这仅补录 T02 的环境部分，不宣称该 Codex 版本已完成适配验收。
+
 ## 补录真实基线
 
 在已开放端口的 Mac 上构建后执行，不退出或重启 Codex：
