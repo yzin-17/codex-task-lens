@@ -20,6 +20,9 @@ export function usePopover({ popup, trigger }: Options) {
       cancelAnimationFrame(frame); cancelAnimationFrame(afterFrame);
       const transition = event as ToggleEvent;
       if (transition.newState === 'open') { outside.current = false; return; }
+      // All close paths (including native trigger toggles) end the pin session.
+      // beforetoggle is synchronous; toggle can coalesce a quick close/reopen.
+      pin.current = false; setPinned(false);
       if (!outside.current && transition.oldState === 'open') frame = requestAnimationFrame(() => {
         afterFrame = requestAnimationFrame(() => {
           if (!outside.current && button.isConnected && !node.matches(':popover-open')) button.focus({ preventScroll: true });
