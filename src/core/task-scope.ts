@@ -1,5 +1,6 @@
 import type { Nodes, Root } from 'mdast';
 import { LensError, type HeadingPart, type SectionOption, type TaskScope } from '../contracts/index.js';
+import { TaskBudget } from './task-budget.js';
 export function plainText(node: Nodes): string {
   if (node.type === 'html') return '';
   if ('value' in node && typeof node.value === 'string') return node.value;
@@ -10,7 +11,7 @@ export function plainText(node: Nodes): string {
 export function sectionsOf(root: Root, source: string): SectionOption[] {
   type Entry = { index: number; depth: number; title: string; line: number; endLine: number; parent?: Entry; part: HeadingPart };
   const headings: Entry[] = [], stack: Entry[] = [], siblings = new Map<string, Entry[]>();
-  const lastLine = source.split('\n').length;
+  const lastLine = source.split('\n').length, budget = new TaskBudget(4 * 1024 * 1024);
   for (const node of root.children) {
     if (node.type !== 'heading' || !node.position) continue;
     const title = plainText(node) || '(空标题)';
@@ -26,7 +27,8 @@ export function sectionsOf(root: Root, source: string): SectionOption[] {
   return headings.map(entry => {
     const chain: HeadingPart[] = [];
     for (let current: Entry | undefined = entry; current; current = current.parent) chain.unshift(current.part);
-    return { label: chain.map(part => part.title + (part.total > 1 ? ` (${part.ordinal}/${part.total})` : '')).join(' / '), scope: { kind: 'section', path: chain }, line: entry.line, endLine: entry.endLine };
+    const option: SectionOption = { label: chain.map(part => part.title + (part.total > 1 ? ` (${part.ordinal}/${part.total})` : '')).join(' / '), scope: { kind: 'section', path: chain }, line: entry.line, endLine: entry.endLine };
+    budget.add(option); return option;
   });
 }
 export function groupsForLine(sections: SectionOption[], line: number): string[] {

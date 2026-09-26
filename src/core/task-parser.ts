@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm';
 import type { ListItem, Nodes, Root } from 'mdast';
 import { DOCUMENT_SCOPE, LensError, MAX_DOCUMENT_BYTES, MAX_TASKS, type ExplicitStatus, type ParsedTasks, type TaskItem, type TaskScope } from '../contracts/index.js';
 import { groupsForLine, plainText, scopeRange, sectionsOf } from './task-scope.js';
+import { TaskBudget } from './task-budget.js';
 const parser = unified().use(remarkParse).use(remarkGfm);
 const statuses: Record<string, ExplicitStatus> = { '进行中': 'in_progress', in_progress: 'in_progress', '验证中': 'validating', validating: 'validating', '阻塞': 'blocked', blocked: 'blocked' };
 function taskDescendants(node: Nodes, depth = 0): ListItem[] {
@@ -34,8 +35,10 @@ function explicitState(item: ListItem): { status?: ExplicitStatus; conflict: boo
 }
 export function parseTasks(source: string, scope: TaskScope = DOCUMENT_SCOPE): ParsedTasks {
   if (new TextEncoder().encode(source).byteLength > MAX_DOCUMENT_BYTES) throw new LensError('unsupported', '文档超过 2 MiB 限制');
+  if (source.split('\n').length > 50000) throw new LensError('unsupported', '文档超过 50000 行限制');
   const root = parser.parse(source) as Root;
-  const sections = sectionsOf(root, source), range = scopeRange(scope, sections);
+  const sections = sectionsOf(root, source), range = scopeRange(scope, sections), budget = new TaskBudget();
+  budget.add(sections);
   const items: TaskItem[] = [], diagnostics: string[] = [];
   function walk(node: Nodes, groups: string[], depth = 0): void {
     if (depth > 64) throw new LensError('unsupported', '文档嵌套过深');
@@ -47,11 +50,12 @@ export function parseTasks(source: string, scope: TaskScope = DOCUMENT_SCOPE): P
       const children = taskDescendants(node);
       if (children.length) {
         descendantsGroups = [...groups, firstLine];
-        if (node.checked === true && children.some(child => child.checked === false)) diagnostics.push(`第 ${node.position.start.line} 行父项已勾选，但子项未全部勾选`);
+        if (node.checked === true && children.some(child => child.checked === false)) { const diagnostic = `第 ${node.position.start.line} 行父项已勾选，但子项未全部勾选`; budget.add(diagnostic); diagnostics.push(diagnostic); }
       } else if (typeof node.checked === 'boolean' && node.position.start.line >= range.line && node.position.start.line <= range.endLine) {
         const idMatch = /^([A-Za-z]+\d+(?:[._-][A-Za-z0-9]+)*)(?:\s*[：:]\s*|\s+)/.exec(firstLine);
         const line = node.position.start.line;
-        items.push({ rowId: `${node.position.start.offset ?? line}:${node.position.end.offset ?? node.position.end.line}`, ...(idMatch ? { explicitId: idMatch[1] } : {}), title: idMatch ? firstLine.slice(idMatch[0].length) || firstLine : firstLine, checked: node.checked, line, endLine: node.position.end.line, groups: [...groupsForLine(sections, line), ...groups], raw: source.slice(node.position.start.offset, node.position.end.offset), ...explicitState(node) });
+        const item: TaskItem = { rowId: `${node.position.start.offset ?? line}:${node.position.end.offset ?? node.position.end.line}`, ...(idMatch ? { explicitId: idMatch[1] } : {}), title: idMatch ? firstLine.slice(idMatch[0].length) || firstLine : firstLine, checked: node.checked, line, endLine: node.position.end.line, groups: [...groupsForLine(sections, line), ...groups], raw: source.slice(node.position.start.offset, node.position.end.offset), ...explicitState(node) };
+        budget.add(item); items.push(item);
         if (items.length > MAX_TASKS) throw new LensError('unsupported', '叶子任务超过 5000 项限制');
       }
     }
