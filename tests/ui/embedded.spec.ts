@@ -417,7 +417,7 @@ test('failed additions are visible in the top summary and cancellation preserves
     await expand(f.page); await bind(f.page, file);
     await expect(f.page.locator('.lens-trigger')).toHaveText('进度 1/2');
     await f.page.getByRole('button', { name: '管理文档', exact: true }).click();
-    await f.page.getByLabel('本地绝对路径', { exact: true }).fill(missing); await f.page.getByRole('checkbox').check();
+    await f.page.getByLabel('本地绝对路径', { exact: true }).fill(missing);
     await f.page.getByRole('button', { name: '预览文件', exact: true }).click();
     const errors = f.page.getByRole('button', { name: '1 份需处理', exact: true }); await expect(errors).toBeVisible();
     await expect(f.page.getByRole('button', { name: '确认更改', exact: true })).toBeDisabled();
@@ -439,7 +439,7 @@ test('document summary and searchable scopes fit narrow light and dark popovers 
     const files = ['one', 'two'].map(name => path.join(f.root, name, 'tasks.md'));
     for (const file of files) { await mkdir(path.dirname(file)); await writeFile(file, '# ' + '长文档标题'.repeat(12) + '\n\n## ' + '层级章节'.repeat(20) + '\n- [ ] task\n'); }
     await expand(f.page); await f.page.getByRole('button', { name: '绑定 Task 文档', exact: true }).click();
-    await f.page.getByLabel('本地绝对路径', { exact: true }).fill(files.join('\n')); await f.page.getByRole('checkbox').check();
+    await f.page.getByLabel('本地绝对路径', { exact: true }).fill(files.join('\n'));
     await f.page.getByRole('button', { name: '预览文件', exact: true }).click();
     await expect(f.page.locator('.lens-selected-chips')).toContainText('one/tasks.md'); await expect(f.page.locator('.lens-selected-chips')).toContainText('two/tasks.md');
     await f.page.getByRole('button', { name: '管理已选文档', exact: true }).click();
@@ -465,7 +465,7 @@ test('cancelling an in-flight preview cannot resurrect selected documents or wri
     const gate = new Promise<void>(resolve => { release = resolve; }), preview = f.service.preview.bind(f.service);
     f.service.preview = async (...args) => { started = true; await gate; try { return await preview(...args); } finally { finished = true; } };
     await expand(f.page); await f.page.getByRole('button', { name: '绑定 Task 文档', exact: true }).click();
-    await f.page.getByLabel('本地绝对路径', { exact: true }).fill(file); await f.page.getByRole('checkbox').check();
+    await f.page.getByLabel('本地绝对路径', { exact: true }).fill(file);
     await f.page.getByRole('button', { name: '预览文件', exact: true }).click();
     await expect.poll(() => started).toBe(true);
     await f.page.getByRole('button', { name: '取消', exact: true }).click(); release();
