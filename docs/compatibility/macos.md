@@ -18,6 +18,10 @@
 
 已通过授权远程连接确认：macOS 26.6.2（25G83）／arm64、Node 24.18.0、项目 pnpm 10.28.2，实际应用为 `/Applications/ChatGPT.app`，Codex 26.924.22138／`com.openai.codex`，应用与可执行文件签名通过。本次实例未开放 CDP，尚不能采集 DOM 和执行 I2。完整命令、结果及修复见 [本机预检](../validation/task-lens-mvp/mac-preflight-2026-09-26.md)。这仅补录 T02 的环境部分，不宣称该 Codex 版本已完成适配验收。
 
+## 2026-09-26 调试启动后的当前状态
+
+用户已明确允许调试启动。9341 回环、签名与进程归属通过，生产 runtime 已连接。修复 lsof 对同一 socket 的主进程／官方辅助进程双 PID 记录误判；当前 probe 仍未识别对话，尚未通过 T02／I2。后续应以 [实际 CDP 接入记录](../validation/task-lens-mvp/mac-cdp-2026-09-26.md) 为准，上一节“未开放端口”为历史预检结果。
+
 ## 补录真实基线
 
 在已开放端口的 Mac 上构建后执行，不退出或重启 Codex：

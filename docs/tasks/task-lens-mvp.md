@@ -48,7 +48,7 @@
   - 验证方式：干净目录执行 `pnpm install --frozen-lockfile && pnpm lint && pnpm typecheck && pnpm test && pnpm build`；记录工具版本和构建产物规则。
 
 - [ ] T02：固化已验证 Mac 的兼容输入样例
-  - 执行记录：已连接用户授权 Mac，补录实际版本与应用签名；当前运行实例未开放 CDP，DOM／A-B 切换及会话结构尚未采集。见 [本机预检](../validation/task-lens-mvp/mac-preflight-2026-09-26.md)，保持未勾选。
+  - 执行记录：已在用户授权后调试启动，真实端点与生产 runtime 连接通过；当前 probe 未识别对话，进一步界面读取被工具安全检查拦截，DOM／A-B 及会话结构仍待验证。见 [实际 CDP 记录](../validation/task-lens-mvp/mac-cdp-2026-09-26.md)，保持未勾选。
   - 覆盖断言：AC02／AC03／AC04 的适配输入基线与 AC11 的环境信息；不替代产品真机验收。
   - 启动依赖：无；需要用户授权的已验证 Mac 环境或用户提供的脱敏资料。
   - 上下文入口：Spec §1、§5、§8、§11；用户已确认 CDP 验证通过这一前提。
@@ -293,3 +293,5 @@ T08 依据 M2 已实现有限的真实记录适配，而非固定返回“日志
 2026-09-26：继续完成 T08／T10／T11／T12／T18／T19／T20，实现内嵌版并通过 [CI 36234589984](https://github.com/yzin-17/codex-task-lens/actions/runs/36234589984)。共 20 / 23；T02／I2／R1 保持未勾选。修复跨 CDP 客户端重连残留 world 与 CLI 就绪前关停竞态；未修改任务分母或引入二期估算。
 
 2026-09-26：通过 Remote Desktop Commander 完成本机安装、签名检查与核心回归，修正诊断命令分发和测试启动／异步断言问题。当前 Codex 普通启动未开放 CDP，未强退或重启；T02 部分补录，I2／R1 保持未通过。见 [实际 Mac 预检](../validation/task-lens-mvp/mac-preflight-2026-09-26.md)。
+
+2026-09-26：已获准调试启动并连接实际 Codex；修复官方辅助进程共享监听 socket 的误拒绝。本机 110 项核心回归通过，当前 probe 未识别对话，T02／I2／R1 不提前勾选。见 [CDP 接入证据](../validation/task-lens-mvp/mac-cdp-2026-09-26.md)。

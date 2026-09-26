@@ -14,3 +14,7 @@
 4. Rollout 会话身份与 cwd：openai/codex `codex-rs/rollout/src/metadata.rs`、`codex-rs/history/src/lib.rs`，commit `e72da2b53805894878023d01949a25a082e0a5cb`。本工具不宣称日志格式是稳定 API。https://github.com/openai/codex/tree/e72da2b53805894878023d01949a25a082e0a5cb/codex-rs
 
 上述实现为独立编写，没有复制主题、第三方 JS 代码或图像资产。常量的来源用于审计与后续兼容更新。未知身份、签名变更、无法唯一关联输入区时应降级，不放宽校验冒充成功。
+
+## 实际 macOS 共享监听合同
+
+见 [2026-09-26 实机证据](../validation/task-lens-mvp/mac-cdp-2026-09-26.md)。lsof `d` 字段对应 socket device（本机 `lsof -F?` 与常规表格交叉确认）。唯一可信 Codex 主进程之外，仅允许共享同一 socket、同用户、直属、精确名称且签名 identifier 为 `com.openai.sky.CUAService` 的辅助进程。记录／归属在 HTTP 查询前后验证，无法证明时拒绝。此变更不扩大界面数据读取或文档授权。
