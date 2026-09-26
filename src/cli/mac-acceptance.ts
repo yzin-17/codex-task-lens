@@ -79,6 +79,27 @@ export async function runMacAcceptance(args: string[]): Promise<number> {
     if (!panel.groupsExpanded) throw new Error('Both task groups must initially be expanded');
   };
   const start = () => startCodex({ cdpPort: options.cdpPort ?? 9341, appPath: endpoint!.app.bundle, sourceId, dataDirectory: path.join(fixtureRoot!, 'state'), workspace: path.join(fixtureRoot!, 'worktree-a'), sessionRoot: options.sessionRoot, allowSessionRead: options.allowSessionRead, openBrowser: false });
+  const cleanup = async (): Promise<boolean> => {
+    let cleaned = true;
+    try {
+      await standalone?.close(); await runtime?.close();
+      if (observer && !observer.peer.isClosed) await observer.assertUnoccupied();
+      if (endpoint) {
+        const current = await verifyEndpoint(endpoint.app, endpoint.port);
+        for (const target of current.targets) {
+          const reader = new DesktopObserver(await CdpSession.connect(target.webSocketDebuggerUrl, async () => {
+            const verified = await verifyEndpoint(endpoint!.app, endpoint!.port);
+            if (verified.pid !== current.pid || !verified.targets.some(item => item.webSocketDebuggerUrl === target.webSocketDebuggerUrl)) throw new Error('Cleanup target changed');
+          }));
+          try { await reader.start(); await reader.assertUnoccupied(); } finally { reader.close(); }
+        }
+      }
+      if (runtime) { const resources = runtime.service.resources(); if (resources.documents || resources.watchers || resources.subscribers) cleaned = false; }
+    } catch { cleaned = false; }
+    observer?.close();
+    if (fixtureRoot) await rm(fixtureRoot, { recursive: true, force: true }).catch(() => { cleaned = false; });
+    return cleaned;
+  };
   try {
     console.log(ACCEPTANCE_HELP);
     if (!(await check('environment', async () => {
@@ -95,7 +116,9 @@ export async function runMacAcceptance(args: string[]): Promise<number> {
       const dirty = (await command('/usr/bin/git', ['-C', repo, 'status', '--porcelain', '--untracked-files=no'])).stdout.trim();
       report.environment = { platform: process.platform, architecture: process.arch, macOS: (await command('/usr/bin/sw_vers', ['-productVersion'])).stdout.trim(), codexVersion: app.version.slice(0, 128), node: process.version, signedEndpoint: true, commit: /^[a-f0-9]{40}$/.test(commit) ? commit : null, artifactHash: await artifactFingerprint(), cleanWorktree: !dirty };
       if (dirty) throw new Error('Commit or stash code changes before acceptance');
-    }))) return 2;
+    }))) {
+      console.log('请核对：仅保留一个 Codex 主窗口；已停止其他 Task Lens；pnpm doctor 通过；仓库已构建且无未提交修改。'); return 2;
+    }
     fixtureRoot = await realpath(await mkdtemp(path.join(tmpdir(), 'codex-task-lens-acceptance-')));
     const workA = path.join(fixtureRoot, 'worktree-a'), workB = path.join(fixtureRoot, 'worktree-b');
     await command('/usr/bin/git', ['init', '--quiet', '--initial-branch=main', workA]);
@@ -175,27 +198,8 @@ export async function runMacAcceptance(args: string[]): Promise<number> {
     });
   } catch { console.log('验收已中断或遇到环境问题；保留未通过状态并执行清理。'); }
   finally {
-    if (report.status('final_cleanup') === 'pending') {
-      const started = performance.now(); let cleaned = true;
-      try {
-        await standalone?.close(); await runtime?.close();
-        if (observer && !observer.peer.isClosed) await observer.assertUnoccupied();
-        if (endpoint) {
-          const current = await verifyEndpoint(endpoint.app, endpoint.port);
-          for (const target of current.targets) {
-            const reader = new DesktopObserver(await CdpSession.connect(target.webSocketDebuggerUrl, async () => {
-              const verified = await verifyEndpoint(endpoint!.app, endpoint!.port);
-              if (verified.pid !== current.pid || !verified.targets.some(item => item.webSocketDebuggerUrl === target.webSocketDebuggerUrl)) throw new Error('Cleanup target changed');
-            }));
-            try { await reader.start(); await reader.assertUnoccupied(); } finally { reader.close(); }
-          }
-        }
-        if (runtime) { const resources = runtime.service.resources(); if (resources.documents || resources.watchers || resources.subscribers) throw new Error('Host resources retained'); }
-      } catch { cleaned = false; }
-      observer?.close();
-      if (fixtureRoot) await rm(fixtureRoot, { recursive: true, force: true }).catch(() => { cleaned = false; });
-      report.finish('final_cleanup', cleaned ? 'passed' : 'failed', performance.now() - started, cleaned ? 'resources_released' : 'cleanup_not_confirmed');
-    }
+    const started = performance.now(), cleaned = await cleanup();
+    report.finish('final_cleanup', cleaned ? 'passed' : 'failed', performance.now() - started, cleaned ? 'resources_released' : 'cleanup_not_confirmed');
     for (const id of [...AUTOMATED_CHECKS, ...OPERATOR_CHECKS]) if (report.status(id) === 'pending') report.finish(id, 'blocked', 0, controller.signal.aborted ? 'interrupted' : 'prerequisite_not_met');
     terminal.close(); process.off('SIGINT', abort); process.off('SIGTERM', abort);
     const files = await writeAcceptanceReport(report, path.resolve('test-results'));
