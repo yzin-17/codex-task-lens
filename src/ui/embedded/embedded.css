@@ -37,3 +37,8 @@ button:disabled{opacity:.5;cursor:default}
 :host([data-theme=dark]){color-scheme:dark;--lens-bg:#242528;--lens-text:#e5e7eb;--lens-muted:#999da5;--lens-border:#3a3c40;--lens-soft:#303236;--lens-warn:#e5ad79;--lens-ok:#7dbb98}
 :host([data-theme=dark]) .lens-task-panel{--lens-muted:#999da5;--lens-border:#3a3c40;--lens-soft:#303236;--lens-warn:#e5ad79;--lens-ok:#7dbb98}
 @media(prefers-color-scheme:dark){:host([data-theme=auto]){color-scheme:dark;--lens-bg:#242528;--lens-text:#e5e7eb;--lens-muted:#999da5;--lens-border:#3a3c40;--lens-soft:#303236;--lens-warn:#e5ad79;--lens-ok:#7dbb98}}
+
+.lens-documents .lens-task-panel>p[role=status].lens-muted{display:none}
+.lens-documents .lens-task-panel footer{display:none}
+.lens-documents .lens-document-meta p{line-height:1.4}
+.lens-documents .lens-task-group{margin-top:3px}

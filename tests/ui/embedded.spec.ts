@@ -228,6 +228,9 @@ test('toolbar entry opens a top-layer popover without moving the composer; outsi
     expect(box!.x).toBeGreaterThanOrEqual(0); expect(box!.y).toBeGreaterThanOrEqual(0);
     expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width); expect(box!.y + box!.height).toBeLessThanOrEqual(viewport.height);
     expect(await f.page.getByLabel('输入', { exact: true }).boundingBox()).toEqual(before);
+    // Electron hosts may consume keyboard events before injected document listeners.
+    await f.page.evaluate(() => document.addEventListener('keydown', event => { if (event.key === 'Escape') event.stopImmediatePropagation(); }, true));
+    await expect(entry).toHaveAttribute('popovertargetaction', 'toggle');
     await f.page.keyboard.press('Escape'); await expect(entry).toHaveAttribute('aria-expanded', 'false'); await expect(entry).toBeFocused();
     await entry.click(); await f.page.getByLabel('输入', { exact: true }).click();
     await expect(entry).toHaveAttribute('aria-expanded', 'false');

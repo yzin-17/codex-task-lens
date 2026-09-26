@@ -34,14 +34,10 @@ export function EmbeddedPanel({ client, initialGrantId }: { client: EmbeddedClie
     const resize = new ResizeObserver(place); resize.observe(node); resize.observe(button);
     window.addEventListener('resize', place); window.addEventListener('scroll', place, true); window.visualViewport?.addEventListener('resize', place);
     const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(); } };
-    document.addEventListener('keydown', escape, true); place();
-    return () => { resize.disconnect(); window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true); window.visualViewport?.removeEventListener('resize', place); document.removeEventListener('keydown', escape, true); };
+    window.addEventListener('keydown', escape, true); place();
+    node.querySelector<HTMLButtonElement>('[data-lens-close]')?.focus({ preventScroll: true });
+    return () => { resize.disconnect(); window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true); window.visualViewport?.removeEventListener('resize', place); window.removeEventListener('keydown', escape, true); };
   }, [open]);
-  function toggle() {
-    if (!popup.current || !trigger.current) return;
-    if (popup.current.matches(':popover-open')) close();
-    else { popup.current.showPopover(); setOpen(true); requestAnimationFrame(() => popup.current?.querySelector<HTMLButtonElement>('[data-lens-close]')?.focus({ preventScroll: true })); }
-  }
   function bound(next: ViewState) { setView(previous => previous && previous.bindingVersion > next.bindingVersion ? previous : next); setTab('tasks'); }
   async function openSource(bindingId: string, line: number) {
     if (!view) return;
@@ -49,12 +45,12 @@ export function EmbeddedPanel({ client, initialGrantId }: { client: EmbeddedClie
     catch (failure) { setMessage(failure instanceof Error ? failure.message : '无法打开源文件'); }
   }
   return <>
-    <button type="button" ref={trigger} className="lens-trigger" aria-label="展开任务清单" aria-haspopup="dialog" aria-expanded={open} aria-controls={titleId + '-popup'} title={`${progress.label}${progress.suffix ? ' · ' + progress.suffix : ''} · 点击查看任务文档`} onClick={toggle}>
+    <button type="button" ref={trigger} className="lens-trigger" aria-label="展开任务清单" aria-haspopup="dialog" aria-expanded={open} aria-controls={titleId + '-popup'} title={`${progress.label}${progress.suffix ? ' · ' + progress.suffix : ''} · 点击查看任务文档`} popoverTarget={titleId + '-popup'} popoverTargetAction="toggle">
       <svg aria-hidden="true" width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="m3 5 1.5 1.5L7 4M10 5h7M3 11h4m3 0h7M3 16h4m3 0h7" /></svg>
       <span>{progress.label}</span>{progress.warning && <span className="lens-trigger-warning" title={progress.suffix || '连接异常'} aria-label={progress.suffix || '连接异常'}>!</span>}
     </button>
     <div ref={popup} popover="auto" role="dialog" aria-modal="false" aria-labelledby={titleId} className="lens-embedded-shell" id={titleId + '-popup'} tabIndex={-1}>
-      <header className="lens-popover-header"><h2 id={titleId}>任务清单</h2><span className="lens-total-count">{progress.hasData ? `${progress.completed}/${progress.total}${progress.suffix ? ' · ' + progress.suffix : ''}` : '尚未绑定'}</span><button type="button" data-lens-close aria-label="关闭任务清单" onClick={() => close()}>×</button></header>
+      <header className="lens-popover-header"><h2 id={titleId}>任务清单</h2><span className="lens-total-count">{progress.hasData ? `${progress.completed}/${progress.total}${progress.suffix ? ' · ' + progress.suffix : ''}` : documents.length ? '正在读取' : '尚未绑定'}</span><button type="button" data-lens-close aria-label="关闭任务清单" onClick={() => close()}>×</button></header>
       <div className="lens-popover-subhead"><span className="lens-thread-label">当前对话 · {client.monitor.kind === 'thread' ? client.monitor.threadId.slice(0, 8) : ''}</span><span>本地只读</span></div>
       <nav className="lens-tabs" aria-label="任务视图"><button type="button" aria-pressed={tab === 'tasks'} onClick={() => setTab('tasks')}>清单</button><button type="button" aria-pressed={tab === 'documents'} disabled={!view || !!connection} onClick={() => setTab('documents')}>文档{documents.length ? ` ${documents.length}` : ''}</button></nav>
       <div className="lens-embedded-body">
