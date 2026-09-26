@@ -103,3 +103,117 @@ test('automatically discovers within an explicitly authorized workspace and supp
     await expect(f.page.getByText('task from workspace', { exact: true })).toHaveCount(0);
   } finally { await f.close(); }
 });
+
+
+// Minimal structural reproduction of Codex 26.924: a hidden metadata DIV and
+// the visible editor separated by wrappers; no private text or thread IDs.
+async function hiddenSentinelLayout(page: Page) {
+  await page.locator('.pane').evaluate((pane, id) => {
+    pane.removeAttribute('data-thread-id');
+    const marker = document.createElement('div');
+    marker.setAttribute('data-above-composer-conversation-id', id);
+    marker.style.display = 'none';
+    const editor = document.createElement('div');
+    editor.className = 'ProseMirror'; editor.contentEditable = 'true';
+    editor.setAttribute('role', 'textbox'); editor.setAttribute('aria-label', '输入');
+    editor.style.minHeight = '44px';
+    let interior: HTMLElement = editor;
+    for (let i = 0; i < 6; i++) {
+      const wrapper = document.createElement('div'); wrapper.append(interior); interior = wrapper;
+    }
+    const shell = document.createElement('div'); shell.className = '_ComposerLayoutRoot_fixture'; shell.append(interior);
+    let outer = shell;
+    for (let i = 0; i < 2; i++) { const wrapper = document.createElement('div'); wrapper.append(outer); outer = wrapper; }
+    pane.replaceChildren(marker, outer);
+  }, a);
+  await expect(page.locator('[data-task-lens-host]')).toHaveCount(1);
+}
+test('hidden composer metadata identifies the real pane and restores A→B→A bindings', async () => {
+  const f = await fixture(); try {
+    await hiddenSentinelLayout(f.page);
+    await expect(f.page.locator('.lens-thread-label')).toContainText(a.slice(0, 8));
+    await expect(f.page.locator('.lens-unknown')).toHaveCount(0);
+    const file = path.join(f.root, 'hidden-metadata.md'); await writeFile(file, '- [ ] metadata task\n- [x] done\n');
+    await expand(f.page); await bind(f.page, file);
+    await expect(f.page.locator('.lens-task-count')).toContainText('1 / 2');
+    const marker = f.page.locator('[data-above-composer-conversation-id]');
+    await expect(marker).toHaveCSS('display', 'none');
+    await marker.evaluate((element, id) => element.setAttribute('data-above-composer-conversation-id', id), b);
+    await expect(f.page.locator('.lens-thread-label')).toContainText(b.slice(0, 8));
+    await expect(f.page.getByText('metadata task', { exact: true })).toHaveCount(0);
+    await expect(f.page.locator('.lens-embedded-shell>summary')).toContainText('尚未绑定');
+    await marker.evaluate((element, id) => element.setAttribute('data-above-composer-conversation-id', id), a);
+    await expect(f.page.locator('.lens-thread-label')).toContainText(a.slice(0, 8)); await expand(f.page);
+    await expect(f.page.getByText('metadata task', { exact: true })).toBeVisible();
+    await writeFile(file + '.tmp', '- [x] metadata task\n- [x] done\n'); await rename(file + '.tmp', file);
+    await expect(f.page.locator('.lens-task-count')).toContainText('2 / 2');
+    await f.bridge().close(); await expect(f.page.locator('[data-task-lens-host]')).toHaveCount(0);
+    expect(f.service.resources().subscribers).toBe(0);
+  } finally { await f.close(); }
+});
+for (const inactive of ['display', 'hidden', 'aria-hidden', 'visibility'] as const) {
+  test(`hidden metadata never selects a marker under an inactive ${inactive} ancestor`, async () => {
+    const f = await fixture(); try {
+      await hiddenSentinelLayout(f.page);
+      await f.page.locator('[data-above-composer-conversation-id]').evaluate((marker, state) => {
+        const wrapper = document.createElement('div');
+        if (state === 'display') wrapper.style.display = 'none';
+        else if (state === 'visibility') wrapper.style.visibility = 'hidden';
+        else wrapper.setAttribute(state, state === 'hidden' ? '' : 'true');
+        marker.replaceWith(wrapper); wrapper.append(marker);
+      }, inactive);
+      await expect(f.page.locator('.lens-unknown')).toBeVisible();
+      await expect(f.page.locator('.lens-thread-label')).toHaveCount(0);
+      await f.page.locator('.pane').evaluate((pane, id) => {
+        const active = document.createElement('div'); active.style.display = 'none';
+        active.setAttribute('data-above-composer-conversation-id', id); pane.prepend(active);
+      }, b);
+      await expect(f.page.locator('.lens-thread-label')).toContainText(b.slice(0, 8));
+      await expect(f.page.locator('.lens-unknown')).toHaveCount(0);
+    } finally { await f.close(); }
+  });
+}
+test('only an empty dedicated sentinel may use display:none; malformed and conflicting IDs stay unknown', async () => {
+  const f = await fixture(); try {
+    await hiddenSentinelLayout(f.page);
+    const marker = f.page.locator('[data-above-composer-conversation-id]');
+    await marker.evaluate(node => node.append(document.createElement('span')));
+    await expect(f.page.locator('.lens-unknown')).toBeVisible();
+    await marker.evaluate(node => node.replaceChildren());
+    await expect(f.page.locator('.lens-thread-label')).toContainText(a.slice(0, 8));
+    await marker.evaluate(node => node.setAttribute('data-above-composer-conversation-id', 'not-a-thread'));
+    await expect(f.page.locator('.lens-unknown')).toBeVisible();
+    await marker.evaluate((node, id) => node.setAttribute('data-above-composer-conversation-id', id), a);
+    await f.page.locator('.pane').evaluate((pane, id) => {
+      const conflict = document.createElement('div'); conflict.style.display = 'none';
+      conflict.setAttribute('data-above-composer-conversation-id', id); pane.prepend(conflict);
+    }, b);
+    await expect(f.page.locator('.lens-unknown')).toBeVisible();
+    await expect(f.page.locator('.lens-thread-label')).toHaveCount(0);
+    await f.page.locator('[data-above-composer-conversation-id]').evaluateAll(nodes => {
+      nodes[0]!.remove(); const node = nodes[1]!;
+      node.setAttribute('data-thread-id', node.getAttribute('data-above-composer-conversation-id')!);
+      node.removeAttribute('data-above-composer-conversation-id');
+    });
+    await expect(f.page.locator('.lens-unknown')).toBeVisible();
+  } finally { await f.close(); }
+});
+test('separate visible composers use their own hidden sentinel, never a global first marker', async () => {
+  const f = await fixture(); try {
+    await hiddenSentinelLayout(f.page);
+    await f.page.locator('main').evaluate((main, id) => {
+      const pane = document.createElement('section'); pane.className = 'pane';
+      const marker = document.createElement('div'); marker.style.display = 'none';
+      marker.setAttribute('data-above-composer-conversation-id', id);
+      const shell = document.createElement('div'); shell.setAttribute('data-composer-root', '');
+      const editor = document.createElement('textarea'); editor.setAttribute('aria-label', 'second');
+      shell.append(editor); pane.append(marker, shell); main.append(pane);
+    }, b);
+    await expect(f.page.locator('[data-task-lens-host]')).toHaveCount(2);
+    await expect(f.page.locator('.lens-thread-label')).toHaveText([`当前对话 · ${a.slice(0, 8)}`, `当前对话 · ${b.slice(0, 8)}`]);
+    await f.page.locator('.pane').first().evaluate(node => { (node as HTMLElement).style.display = 'none'; });
+    await expect(f.page.locator('[data-task-lens-host]')).toHaveCount(1);
+    await expect(f.page.locator('.lens-thread-label')).toContainText(b.slice(0, 8));
+    await f.bridge().close(); expect(f.service.resources().subscribers).toBe(0);
+  } finally { await f.close(); }
+});

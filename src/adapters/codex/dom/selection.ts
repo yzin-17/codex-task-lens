@@ -15,10 +15,13 @@ export function visible(node: Element): boolean {
   return node.isConnected && rect.width > 0 && rect.height > 0 && style?.visibility !== 'hidden' && style?.display !== 'none';
 }
 function activeMarker(node: Element, region: Element): boolean {
-  // A conversation marker may be an empty, zero-height element next to the composer.
+  // Codex 26.924 uses an empty, display:none metadata sentinel beside the composer.
+  // Only that sentinel may be non-rendered; inactive ancestors and generic IDs remain excluded.
+  const metadataSentinel = node.tagName === 'DIV' && node.hasAttribute(THREAD_ATTRIBUTES[0]) && node.childNodes.length === 0;
   for (let current: Element | null = node; current; current = current.parentElement) {
     const style = current.ownerDocument.defaultView?.getComputedStyle(current);
-    if (!current.isConnected || current.hasAttribute('hidden') || current.getAttribute('aria-hidden') === 'true' || style?.display === 'none' || style?.visibility === 'hidden') return false;
+    const nonRenderedSentinel = current === node && metadataSentinel;
+    if (!current.isConnected || current.hasAttribute('hidden') || current.getAttribute('aria-hidden') === 'true' || (style?.display === 'none' && !nonRenderedSentinel) || style?.visibility === 'hidden') return false;
     if (current === region) return true;
   }
   return false;
