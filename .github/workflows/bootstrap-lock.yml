@@ -1,0 +1,28 @@
+# Temporary, branch-scoped lockfile generation. Removed after the lock is committed.
+name: Bootstrap lockfile
+on:
+  push:
+    branches: [feat/standalone-document-flow]
+permissions:
+  contents: write
+jobs:
+  lock:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/standalone-document-flow
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: corepack enable
+      - name: Generate only when absent
+        run: |
+          if test -f pnpm-lock.yaml; then exit 0; fi
+          pnpm install --lockfile-only --ignore-scripts
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add pnpm-lock.yaml
+          git commit -m 'build: lock the pinned Node toolchain dependencies'
+          git push origin HEAD:feat/standalone-document-flow
