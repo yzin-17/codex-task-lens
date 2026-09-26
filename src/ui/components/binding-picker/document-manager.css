@@ -23,7 +23,8 @@
 .lens-section-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}.lens-section-heading h3{font-size:12px;font-weight:650}
 .lens-manager-candidates>.lens-muted{margin-bottom:10px}
 .lens-candidate-empty{padding:12px 10px;background:var(--lens-soft,#f5f6f7);border-radius:8px;color:var(--lens-muted,#777);font-size:11px}.lens-candidate-empty span{display:block;margin-top:3px}
-.lens-candidate{padding:9px 0;border-bottom:1px solid var(--lens-border,#eee);min-width:0}
+.lens-candidate{padding:9px 0;min-width:0}
+.lens-candidate+.lens-candidate{border-top:1px solid var(--lens-border,#eee)}
 .lens-candidate>div{display:flex;gap:8px;align-items:center}.lens-candidate strong{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px}
 .lens-candidate>div>span{color:var(--lens-muted,#777);font-size:11px;font-variant-numeric:tabular-nums}.lens-candidate button{padding:3px 7px;min-width:47px;font-size:11px}.lens-candidate[data-selected=true] button{border-color:transparent;opacity:.8}
 .lens-candidate small{color:var(--lens-muted,#777);font-size:10px}.lens-document-manager code{display:block;font:10px/1.5 ui-monospace,SFMono-Regular,monospace;color:var(--lens-muted,#777);overflow-wrap:anywhere}
