@@ -67,3 +67,17 @@ it('rejects another monitor member, stale set version and cross-generation previ
   expect(store.get(a)).toEqual(initial);
   await expect(service.openSource(a, 1, 1, async () => true, store.get(b).binding!.id)).rejects.toMatchObject({ code: 'conflict' });
 });
+it('keeps an unreadable member cached while another member continues updating', async () => {
+  const first = await preview('a'), second = await preview('b');
+  await service.confirmMany(a, 0, [first.id, second.id], [], 0);
+  await expect.poll(async () => summarizeDocuments(await service.snapshot(a)).warning).toBe(false);
+  await writeFile(path.join(root, 'b.md'), Buffer.from([255, 254]));
+  await expect.poll(async () => documentsOf(await service.snapshot(a))[1]?.snapshot?.status).toBe('unsupported');
+  await writeFile(path.join(root, 'a.md'), '- [x] a\n- [x] done\n');
+  await expect.poll(async () => summarizeDocuments(await service.snapshot(a))).toMatchObject({ completed: 3, total: 4, warning: true, partial: false });
+  const last = documentsOf(await service.snapshot(a));
+  expect(last[1]!.snapshot).toMatchObject({ cached: true, tasks: { completed: 1, total: 2 } });
+  await service.confirmMany(a, 0, [], [last[0]!.binding.id], 1);
+  expect(service.resources().documents).toBe(1);
+  expect(summarizeDocuments(await service.snapshot(a))).toMatchObject({ completed: 2, total: 2, warning: false });
+});

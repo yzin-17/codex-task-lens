@@ -23,3 +23,11 @@ it('uses a fixed system chooser, handles cancellation and validates returned pat
   expect(await selectMarkdownFiles(async () => ({ stdout: '{"paths":[],"cancelled":true}' }))).toEqual({ paths: [], cancelled: true });
   for (const paths of [['relative.md'], ['/fixture/a.txt'], ['/fixture/a\n.md'], Array.from({ length: 17 }, (_, i) => `/fixture/${i}.md`)]) expect(() => validateSelection({ paths, cancelled: false })).toThrow();
 });
+it('does not open a second native chooser while one is pending', async () => {
+  let release!: (value: { stdout: string }) => void;
+  const pending = selectMarkdownFiles(() => new Promise(resolve => { release = resolve; }));
+  try { await expect(selectMarkdownFiles(async () => ({ stdout: '{"paths":[],"cancelled":true}' }))).rejects.toMatchObject({ code: 'busy' }); }
+  finally { release({ stdout: '{"paths":[],"cancelled":true}' }); }
+  expect(await pending).toEqual({ paths: [], cancelled: true });
+  expect(await selectMarkdownFiles(async () => ({ stdout: '{"paths":[],"cancelled":true}' }))).toEqual({ paths: [], cancelled: true });
+});
