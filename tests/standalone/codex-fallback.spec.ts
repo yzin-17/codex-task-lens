@@ -2,12 +2,13 @@ import { test, expect } from '@playwright/test';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
-import { startCodex } from '../../src/host/codex-runtime.js';
 test('Codex connection failure leaves the real protected document service usable', async () => {
+  const module: typeof import('../../src/host/codex-runtime.js') = await import(pathToFileURL(path.resolve('dist/node/host/codex-runtime.js')).href);
   const root = await mkdtemp(path.join(tmpdir(), 'lens-fallback-'));
-  const runtime = await startCodex({ sourceId: 'fixture', cdpPort: 9341, appPath: '/__task_lens_missing__.app', dataDirectory: path.join(root, 'state'), openBrowser: false });
+  const runtime = await module.startCodex({ sourceId: 'fixture', cdpPort: 9341, appPath: '/__task_lens_missing__.app', dataDirectory: path.join(root, 'state'), openBrowser: false });
   try {
     expect(runtime.status().targets).toBe(0);
     const file = path.join(root, 'task.md'); await writeFile(file, '- [ ] fallback task\n');

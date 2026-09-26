@@ -5,6 +5,7 @@ import { RequestLedger } from '../../contracts/request-ledger.js';
 import type { CdpEvent } from '../../adapters/codex/cdp/session.js';
 import type { LensService } from '../lens-service.js';
 import { openSourceFile } from '../../platform/macos/open-source.js';
+import { resolveToolWorld } from './world.js';
 export type CdpPeer = { isClosed: boolean; send(method: string, params?: CdpEvent): Promise<CdpEvent>; on(method: string, listener: (params: CdpEvent) => void): () => void };
 type Pane = { identity: PaneIdentity; ref: MonitorRef; stop: () => void };
 type Options = { sourceId: string; bundle: string; styles: string; initialGrantId?: string; refreshMs?: number; openFile?: (file: string) => Promise<boolean> };
@@ -31,13 +32,12 @@ export class CdpBridge {
     return (result.result as { value?: unknown } | undefined)?.value;
   }
   private async initialize(): Promise<void> {
-    await this.peer.send('Page.enable'); await this.peer.send('Runtime.enable');
+    await this.peer.send('Page.enable');
     const tree = await this.peer.send('Page.getFrameTree'); const frame = (tree.frameTree as { frame?: { id?: string } } | undefined)?.frame;
     if (!frame?.id) throw new LensError('unsupported', '无法确定顶层 renderer'); this.frameId = frame.id;
-    // Reuse one tool-owned world so a crashed predecessor can be disposed before replacing its module.
-    const world = await this.peer.send('Page.createIsolatedWorld', { frameId: this.frameId, worldName: 'CodexTaskLens' });
+    const world = await resolveToolWorld(this.peer, this.frameId);
     if (!Number.isSafeInteger(world.executionContextId)) throw new LensError('unsupported', '无法建立隔离的执行上下文');
-    this.contextId = world.executionContextId as number;
+    this.contextId = world.executionContextId;
     await this.call('function(){ return globalThis.CodexTaskLensBuild?.dispose(); }');
     this.stops.push(this.peer.on('Runtime.bindingCalled', event => { void this.receive(event).catch(() => undefined); }));
     this.stops.push(this.peer.on('Runtime.executionContextDestroyed', event => { if (event.executionContextId === this.contextId) void this.close(false); }));
