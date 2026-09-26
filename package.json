@@ -1,8 +1,12 @@
 {
   "name": "codex-task-lens",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0-alpha.2",
+  "description": "Local, read-only task progress for Codex Desktop",
+  "author": "yzin-17",
+  "repository": { "type": "git", "url": "https://github.com/yzin-17/codex-task-lens.git" },
   "private": true,
   "type": "module",
+  "main": "desktop/main.cjs",
   "packageManager": "pnpm@10.28.2",
   "engines": { "node": ">=24 <25" },
   "scripts": {
@@ -16,7 +20,10 @@
     "start": "node dist/node/cli/index.js",
     "doctor": "node dist/node/cli/index.js --doctor",
     "test:mac": "node dist/node/cli/mac-probe.js",
-    "test:mac:acceptance": "node dist/node/cli/mac-acceptance.js"
+    "test:mac:acceptance": "node dist/node/cli/mac-acceptance.js",
+    "build:desktop": "node tools/desktop/node_modules/electron-builder/cli.js --config electron-builder.cjs --publish never",
+    "test:desktop": "node --test tests/desktop/*.test.cjs",
+    "test:package": "node scripts/smoke-packaged.mjs"
   },
   "dependencies": {
     "react": "19.2.3",

@@ -10,12 +10,12 @@ import { startLocalServer } from './local-server/server.js';
 import { CdpBridge } from './cdp-bridge/bridge.js';
 import { CdpSession } from '../adapters/codex/cdp/session.js';
 import { SessionRecords } from '../adapters/codex/session-records/index.js';
-import { discoverApp, verifyEndpoint, launchCodex, type CodexApp } from '../platform/macos/codex-app.js';
+import { discoverApp, verifyEndpoint, launchCodex, defaultDataDirectory, type CodexApp } from '../platform/codex-app.js';
 import { claimTarget } from './target-lock.js';
 import type { SessionHints } from '../contracts/index.js';
-export type CodexOptions = { dataDirectory?: string; port?: number; cdpPort: number; appPath?: string; sourceId: string; sessionRoot?: string; allowSessionRead?: boolean; workspace?: string; launch?: boolean; openBrowser?: boolean };
+export type CodexOptions = { dataDirectory?: string; port?: number; cdpPort: number; appPath?: string; sourceId: string; sessionRoot?: string; allowSessionRead?: boolean; workspace?: string; launch?: boolean; openBrowser?: boolean; openFile?: (file: string) => Promise<boolean> };
 export async function startCodex(options: CodexOptions) {
-  const directory = options.dataDirectory ?? path.join(homedir(), 'Library/Application Support/CodexTaskLens');
+  const directory = options.dataDirectory ?? defaultDataDirectory();
   const store = await BindingStore.open(directory);
   let records: SessionRecords | undefined, service: LensService | undefined, server: Awaited<ReturnType<typeof startLocalServer>> | undefined;
   let sessionDiagnostic: string | undefined;
@@ -27,7 +27,7 @@ export async function startCodex(options: CodexOptions) {
     const source = records;
     const unavailableHints: SessionHints = { status: 'unavailable', paths: [], diagnostics: sessionDiagnostic ? [sessionDiagnostic] : [] };
     service = new LensService(store, source ? { hints: ref => source.hints(ref.kind === 'thread' && ref.sourceId === options.sourceId ? { ...ref, sourceId: source.sourceId } : ref) } : sessionDiagnostic ? { hints: async () => unavailableHints } : {});
-    server = await startLocalServer(service, { port: options.port, uiDirectory: fileURLToPath(new URL('../../ui/', import.meta.url)) });
+    server = await startLocalServer(service, { port: options.port, uiDirectory: fileURLToPath(new URL('../../ui/', import.meta.url)), openFile: options.openFile });
     const initialGrantId = options.workspace ? (await service.authorize(options.workspace, 'directory')).id : undefined;
     const bundle = await readFile(new URL('../../inject/task-lens.js', import.meta.url), 'utf8'), styles = await readFile(new URL('../../inject/task-lens.css', import.meta.url), 'utf8');
     let app: CodexApp | undefined, diagnostic = '等待 Codex 连接', closed = false, pid = 0, retry = 1000;
@@ -54,7 +54,7 @@ export async function startCodex(options: CodexOptions) {
               const current = await verifyEndpoint(app!, options.cdpPort);
               if (current.pid !== endpoint.pid || !current.targets.some(item => item.id === target.id && item.webSocketDebuggerUrl === target.webSocketDebuggerUrl)) throw new Error('Endpoint changed');
             });
-            const bridge = await CdpBridge.attach(session, service!, { sourceId: options.sourceId, bundle, styles, initialGrantId });
+            const bridge = await CdpBridge.attach(session, service!, { sourceId: options.sourceId, bundle, styles, initialGrantId, openFile: options.openFile });
             if (closed) { await bridge.close(); session.close(); await lock.release(); break; }
             targets.set(target.id, { session, bridge, socket: target.webSocketDebuggerUrl, lock });
           } catch (error) { session?.close(); await lock?.release(); failures.push(error instanceof Error && error.name === 'LensError' ? error.message : '页面连接失败'); }
