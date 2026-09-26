@@ -1,0 +1,39 @@
+name: Finalize verified embedded documentation
+on:
+  push:
+    branches: [feat/codex-embedded-runtime]
+    paths: [.github/workflows/finalize-embedded-docs.yml]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/codex-embedded-runtime
+      - name: Reapply evidence-checked document transformation with normalized EOF
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from textwrap import dedent
+          workflow = Path('.github/workflows/embedded-docs-checkpoint.yml').read_text()
+          source = dedent(workflow.split("          python3 - <<'PY'\n", 1)[1].split('\n          PY\n', 1)[0])
+          old = "(evidence / 'README.md').write_text(index)"
+          assert source.count(old) == 1
+          source = source.replace(old, "(evidence / 'README.md').write_text(index.rstrip() + '\\n')")
+          exec(compile(source, '<verified-document-checkpoint>', 'exec'))
+          PY
+      - name: Commit verified documentation and remove both one-shot workflows
+        run: |
+          rm .github/workflows/embedded-docs-checkpoint.yml .github/workflows/finalize-embedded-docs.yml
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/tasks/task-lens-mvp.md docs/specs/2026-09-26-task-lens-mvp.md docs/validation/task-lens-mvp .github/workflows/embedded-docs-checkpoint.yml .github/workflows/finalize-embedded-docs.yml
+          git commit -m 'docs: record 20 verified tasks and preserve actual Codex acceptance gates'
+          git push origin HEAD:refs/heads/feat/codex-embedded-runtime
