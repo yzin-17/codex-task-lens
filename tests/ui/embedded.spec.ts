@@ -1,6 +1,6 @@
 import { test, expect, chromium, type BrowserContext, type Page } from '@playwright/test';
 import { createServer } from 'node:http';
-import { mkdtemp, mkdir, readFile, writeFile, rm, rename } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, writeFile, rm, rename, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { BindingStore } from '../../src/store/binding-store.js';
@@ -480,7 +480,9 @@ test('cancelling an in-flight preview cannot resurrect selected documents or wri
 
 test('unified file entry previews one or many paths without a checkbox or implicit reads', async () => {
   const f = await fixture(); try {
-    const files = ['first.md', 'second.md'].map(name => path.join(f.root, name));
+    // Canonical inputs avoid macOS /var → /private/var aliases in the exact request-count assertion.
+    const root = await realpath(f.root);
+    const files = ['first.md', 'second.md'].map(name => path.join(root, name));
     for (const file of files) await writeFile(file, '- [ ] pending\n- [x] done\n');
     const authorized: string[] = [], previewed: string[] = [];
     const authorize = f.service.authorize.bind(f.service), preview = f.service.preview.bind(f.service);
