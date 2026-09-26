@@ -11,15 +11,21 @@ import { CdpBridge } from './cdp-bridge/bridge.js';
 import { CdpSession } from '../adapters/codex/cdp/session.js';
 import { SessionRecords } from '../adapters/codex/session-records/index.js';
 import { discoverApp, verifyEndpoint, launchCodex, type CodexApp } from '../platform/macos/codex-app.js';
+import type { SessionHints } from '../contracts/index.js';
 export type CodexOptions = { dataDirectory?: string; port?: number; cdpPort: number; appPath?: string; sourceId: string; sessionRoot?: string; allowSessionRead?: boolean; workspace?: string; launch?: boolean; openBrowser?: boolean };
 export async function startCodex(options: CodexOptions) {
   const directory = options.dataDirectory ?? path.join(homedir(), 'Library/Application Support/CodexTaskLens');
   const store = await BindingStore.open(directory);
   let records: SessionRecords | undefined, service: LensService | undefined, server: Awaited<ReturnType<typeof startLocalServer>> | undefined;
+  let sessionDiagnostic: string | undefined;
   try {
-    if (options.sessionRoot && options.allowSessionRead) records = await SessionRecords.open(options.sessionRoot, true);
+    if (options.sessionRoot && options.allowSessionRead) {
+      try { records = await SessionRecords.open(options.sessionRoot, true); }
+      catch { sessionDiagnostic = '已授权的会话记录不可用；目录扫描与手动绑定仍可使用。修复数据源后重新启动以恢复会话线索。'; }
+    }
     const source = records;
-    service = new LensService(store, source ? { hints: ref => source.hints(ref.kind === 'thread' && ref.sourceId === options.sourceId ? { ...ref, sourceId: source.sourceId } : ref) } : {});
+    const unavailableHints: SessionHints = { status: 'unavailable', paths: [], diagnostics: sessionDiagnostic ? [sessionDiagnostic] : [] };
+    service = new LensService(store, source ? { hints: ref => source.hints(ref.kind === 'thread' && ref.sourceId === options.sourceId ? { ...ref, sourceId: source.sourceId } : ref) } : sessionDiagnostic ? { hints: async () => unavailableHints } : {});
     server = await startLocalServer(service, { port: options.port, uiDirectory: fileURLToPath(new URL('../../ui/', import.meta.url)) });
     const initialGrantId = options.workspace ? (await service.authorize(options.workspace, 'directory')).id : undefined;
     const bundle = await readFile(new URL('../../inject/task-lens.js', import.meta.url), 'utf8'), styles = await readFile(new URL('../../inject/task-lens.css', import.meta.url), 'utf8');
@@ -63,7 +69,7 @@ export async function startCodex(options: CodexOptions) {
     active = tick(); await active;
     if (options.openBrowser && process.platform === 'darwin') await promisify(execFile)('/usr/bin/open', [server.url], { timeout: 10000, maxBuffer: 4096 }).catch(() => { diagnostic += '；默认浏览器未打开'; });
     let stopping: Promise<void> | undefined;
-    return { origin: server.origin, url: server.url, service, status: () => ({ diagnostic, targets: targets.size, sourceId: options.sourceId, sessionHints: !!source }), close: () => stopping ??= (async () => {
+    return { origin: server.origin, url: server.url, service, status: () => ({ diagnostic, targets: targets.size, sourceId: options.sourceId, sessionHints: !!source, sessionDiagnostic }), close: () => stopping ??= (async () => {
       closed = true; clearTimeout(timer); await active?.catch(() => undefined); clearTimeout(timer); await closeTargets(); source?.close(); await server!.close(); await service!.close(); await store.close();
     })() };
   } catch (error) { records?.close(); await server?.close(); await service?.close(); await store.close(); throw error; }
