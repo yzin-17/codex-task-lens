@@ -3,7 +3,7 @@ import remarkParse from 'remark-parse';
 import remarkGfm from 'remark-gfm';
 import type { ListItem, Nodes, Root } from 'mdast';
 import { DOCUMENT_SCOPE, LensError, MAX_DOCUMENT_BYTES, MAX_TASKS, type ExplicitStatus, type ParsedTasks, type TaskItem, type TaskScope } from '../contracts/index.js';
-import { plainText, scopeRange, sectionsOf } from './task-scope.js';
+import { groupsForLine, plainText, scopeRange, sectionsOf } from './task-scope.js';
 const parser = unified().use(remarkParse).use(remarkGfm);
 const statuses: Record<string, ExplicitStatus> = { '进行中': 'in_progress', in_progress: 'in_progress', '验证中': 'validating', validating: 'validating', '阻塞': 'blocked', blocked: 'blocked' };
 function taskDescendants(node: Nodes, depth = 0): ListItem[] {
@@ -51,9 +51,7 @@ export function parseTasks(source: string, scope: TaskScope = DOCUMENT_SCOPE): P
       } else if (typeof node.checked === 'boolean' && node.position.start.line >= range.line && node.position.start.line <= range.endLine) {
         const idMatch = /^([A-Za-z]+\d+(?:[._-][A-Za-z0-9]+)*)(?:\s*[：:]\s*|\s+)/.exec(firstLine);
         const line = node.position.start.line;
-        const enclosing = sections.filter(section => section.line <= line && section.endLine >= line);
-        const headingGroups = enclosing.map(section => section.scope.kind === 'section' ? section.scope.path.at(-1)!.title : section.label);
-        items.push({ rowId: `${node.position.start.offset ?? line}:${node.position.end.offset ?? node.position.end.line}`, ...(idMatch ? { explicitId: idMatch[1] } : {}), title: idMatch ? firstLine.slice(idMatch[0].length) || firstLine : firstLine, checked: node.checked, line, endLine: node.position.end.line, groups: [...headingGroups, ...groups], raw: source.slice(node.position.start.offset, node.position.end.offset), ...explicitState(node) });
+        items.push({ rowId: `${node.position.start.offset ?? line}:${node.position.end.offset ?? node.position.end.line}`, ...(idMatch ? { explicitId: idMatch[1] } : {}), title: idMatch ? firstLine.slice(idMatch[0].length) || firstLine : firstLine, checked: node.checked, line, endLine: node.position.end.line, groups: [...groupsForLine(sections, line), ...groups], raw: source.slice(node.position.start.offset, node.position.end.offset), ...explicitState(node) });
         if (items.length > MAX_TASKS) throw new LensError('unsupported', '叶子任务超过 5000 项限制');
       }
     }
