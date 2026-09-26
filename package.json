@@ -15,7 +15,8 @@
     "dev:standalone": "pnpm build && node dist/node/host/standalone-runtime.js",
     "start": "node dist/node/cli/index.js",
     "doctor": "node dist/node/cli/index.js --doctor",
-    "test:mac": "node dist/node/cli/mac-probe.js"
+    "test:mac": "node dist/node/cli/mac-probe.js",
+    "test:mac:acceptance": "node dist/node/cli/mac-acceptance.js"
   },
   "dependencies": {
     "react": "19.2.3",
