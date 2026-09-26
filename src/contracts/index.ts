@@ -2,6 +2,7 @@ export const PROTOCOL_VERSION = 1 as const;
 export const MAX_REQUEST_BYTES = 32 * 1024;
 export const MAX_DOCUMENT_BYTES = 2 * 1024 * 1024;
 export const MAX_TASKS = 5000;
+export const MAX_DOCUMENTS = 16;
 export type MonitorRef = { kind: 'thread'; sourceId: string; threadId: string } | { kind: 'standalone'; id: string };
 export const monitorKey = (ref: MonitorRef): string => ref.kind === 'thread' ? JSON.stringify(['thread', ref.sourceId, ref.threadId]) : JSON.stringify(['standalone', ref.id]);
 export type HeadingPart = { depth: number; title: string; ordinal: number; total: number };
@@ -16,21 +17,24 @@ export type ParsedTasks = { title: string; items: TaskItem[]; completed: number;
 export type SourceStatus = 'loading' | 'ready' | 'missing' | 'permission_denied' | 'unsupported' | 'scope_missing' | 'unstable' | 'error';
 export type DocumentSnapshot = { revision: string; status: SourceStatus; cached: boolean; tasks: ParsedTasks | null; lastReadAt: number | null; lastTaskChangeAt: number | null; diagnostics: string[] };
 export type TaskSnapshot = DocumentSnapshot & { monitor: MonitorRef; bindingVersion: number };
-export type ViewState = { monitor: MonitorRef; generation: number; bindingVersion: number; binding: Binding | null; snapshot: TaskSnapshot | null; connection: 'standalone' | 'connected' | 'disconnected' | 'incompatible' | 'unknown_thread' };
+export type BoundDocument = { binding: Binding; snapshot: TaskSnapshot | null };
+export type ViewState = { documents?: BoundDocument[]; monitor: MonitorRef; generation: number; bindingVersion: number; binding: Binding | null; snapshot: TaskSnapshot | null; connection: 'standalone' | 'connected' | 'disconnected' | 'incompatible' | 'unknown_thread' };
 export type SessionHints = { status: 'ready' | 'unavailable' | 'unsupported'; cwd?: string; paths: { path: string; baseDirectory?: string; source: string }[]; diagnostics: string[] };
 export type Candidate = { id: string; path: string; workspace: string | null; sources: string[]; total: number; completed: number; title: string; diagnostics: string[] };
 export type CandidateResult = { candidates: Candidate[]; incomplete: boolean; checked: number; diagnostics: string[] };
 export type Preview = { id: string; grantId: string; path: string; scope: TaskScope; tasks: ParsedTasks; expiresAt: number };
-export type MonitorSummary = { monitor: MonitorRef; bindingVersion: number; binding: Binding | null };
+export type MonitorSummary = { bindings?: Binding[]; monitor: MonitorRef; bindingVersion: number; binding: Binding | null };
 export interface Params {
   authorize: { path: string; kind: 'file' | 'directory'; consent: true };
   listMonitors: Record<string, never>;
   listCandidates: { grantId: string; patterns?: string[] };
   previewDocument: { grantId: string; path: string; scope: TaskScope };
   confirmBinding: { previewId: string; expectedBindingVersion: number };
+  confirmBindings: { previewIds: string[]; keepBindingIds: string[]; expectedBindingVersion: number };
+  pickMarkdownFiles: { consent: true };
   clearBinding: { expectedBindingVersion: number };
   getSnapshot: Record<string, never>;
-  openSource: { expectedBindingVersion: number; line: number };
+  openSource: { expectedBindingVersion: number; line: number; bindingId?: string };
   subscribe: Record<string, never>;
 }
 export interface Results {
@@ -39,6 +43,8 @@ export interface Results {
   listCandidates: CandidateResult;
   previewDocument: Preview;
   confirmBinding: ViewState;
+  confirmBindings: ViewState;
+  pickMarkdownFiles: { paths: string[]; cancelled: boolean };
   clearBinding: ViewState;
   getSnapshot: ViewState;
   openSource: { opened: boolean; line: number; path: string };
@@ -105,8 +111,19 @@ export function parseRequest(input: unknown): Request {
     }
     case 'previewDocument': { const p = object(v.params, ['grantId', 'path', 'scope']); return { ...base, operation, params: { grantId: text(p.grantId, 128), path: text(p.path), scope: parseScope(p.scope) } }; }
     case 'confirmBinding': { const p = object(v.params, ['previewId', 'expectedBindingVersion']); return { ...base, operation, params: { previewId: text(p.previewId, 128), expectedBindingVersion: integer(p.expectedBindingVersion) } }; }
+    case 'pickMarkdownFiles': { const p = object(v.params, ['consent']); if (p.consent !== true) return fail('文件选择需要明确操作'); return { ...base, operation, params: { consent: true } }; }
+    case 'confirmBindings': {
+      const p = object(v.params, ['previewIds', 'keepBindingIds', 'expectedBindingVersion']);
+      const ids = (value: unknown) => { if (!Array.isArray(value) || value.length > MAX_DOCUMENTS) return fail('文档数量超限'); const rows = value.map(id => text(id, 128)); if (new Set(rows).size !== rows.length) return fail('文档引用重复'); return rows; };
+      const previewIds = ids(p.previewIds), keepBindingIds = ids(p.keepBindingIds);
+      if (previewIds.length + keepBindingIds.length > MAX_DOCUMENTS) return fail('最多绑定 16 份文档');
+      return { ...base, operation, params: { previewIds, keepBindingIds, expectedBindingVersion: integer(p.expectedBindingVersion) } };
+    }
     case 'clearBinding': { const p = object(v.params, ['expectedBindingVersion']); return { ...base, operation, params: { expectedBindingVersion: integer(p.expectedBindingVersion) } }; }
-    case 'openSource': { const p = object(v.params, ['expectedBindingVersion', 'line']); return { ...base, operation, params: { expectedBindingVersion: integer(p.expectedBindingVersion), line: integer(p.line, 1) } }; }
+    case 'openSource': { const p = object(v.params, ['expectedBindingVersion', 'line', 'bindingId']); return { ...base, operation, params: { expectedBindingVersion: integer(p.expectedBindingVersion), line: integer(p.line, 1), ...(p.bindingId === undefined ? {} : { bindingId: text(p.bindingId, 128) }) } }; }
     default: return fail('不支持的操作');
   }
 }
+
+export const bindingsOf = (row: Pick<MonitorSummary, "binding" | "bindings">): Binding[] => row.bindings ?? (row.binding ? [row.binding] : []);
+export const documentsOf = (view: ViewState | null): BoundDocument[] => view?.documents ?? (view?.binding ? [{ binding: view.binding, snapshot: view.snapshot }] : []);

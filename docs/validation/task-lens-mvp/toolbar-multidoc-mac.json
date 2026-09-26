@@ -1,0 +1,89 @@
+{
+  "codeCommit": "1581a232950497bfd88adbfb0d7b6eb76395ffb8",
+  "artifacts": {
+    "js": "a25a2174c0be2d617b2e537b70114a3c673dab0969213f7c6af7197e7db9355a",
+    "css": "7525020d0eab2fea6a0ca830333f045786dbaf67709dee8a81dfaae4badd5a61"
+  },
+  "codex": "26.924.22138",
+  "capturedAt": "2026-09-26T14:17:23.266Z",
+  "kind": "real-codex-temporary-documents",
+  "editorBefore": {
+    "x": 427.75,
+    "y": 1306,
+    "width": 712,
+    "height": 44
+  },
+  "initialCount": "任务 2/4",
+  "editorOpen": {
+    "x": 427.75,
+    "y": 1306,
+    "width": 712,
+    "height": 44
+  },
+  "layout": {
+    "inToolbar": true,
+    "afterPermission": true,
+    "aligned": true,
+    "width": 460,
+    "height": 560,
+    "inViewport": true,
+    "files": 2,
+    "groups": 4,
+    "popup": {
+      "x": 547.75,
+      "y": 786,
+      "width": 460,
+      "height": 560
+    }
+  },
+  "focusBeforeEscape": {
+    "focused": "关闭任务清单",
+    "documentFocused": true,
+    "closed": false
+  },
+  "focusBeforeKeyUp": {
+    "documentFocused": true,
+    "documentActiveTag": "DIV",
+    "editorFocused": true,
+    "closed": true
+  },
+  "focusAfterEscape": {
+    "closed": true
+  },
+  "lastEscapeObservation": {
+    "closed": true,
+    "focused": true
+  },
+  "escape": {
+    "closed": true,
+    "focused": true
+  },
+  "closedCount": "任务 3/4",
+  "lifecycle": true,
+  "latency": [
+    434.21,
+    397.11,
+    372.15,
+    396.38,
+    446.25,
+    343.38,
+    353.17,
+    362.66,
+    367.99,
+    376.18,
+    357.64,
+    377.03,
+    365.12,
+    373.16,
+    465.71,
+    376.36,
+    363.48,
+    357.73,
+    364.68,
+    354.98
+  ],
+  "p95": 446.25,
+  "outsideClosed": true,
+  "cleanedRoots": 0,
+  "passed": true
+}

@@ -1,3 +1,4 @@
+import { selectMarkdownFiles } from '../../platform/macos/select-markdown.js';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { randomBytes,timingSafeEqual } from 'node:crypto';
 import { readFile,realpath,stat } from 'node:fs/promises';
@@ -40,10 +41,12 @@ export async function startLocalServer(service:LensService,options:{port?:number
       case 'listMonitors':return service.listMonitors();
       case 'listCandidates':return service.candidates(monitor,request.params.grantId,request.params.patterns,signal);
       case 'previewDocument':return service.preview(monitor,generation,request.params.grantId,request.params.path,request.params.scope);
+      case 'pickMarkdownFiles':return selectMarkdownFiles();
+      case 'confirmBindings':return service.confirmMany(monitor,generation,request.params.previewIds,request.params.keepBindingIds,request.params.expectedBindingVersion);
       case 'confirmBinding':return service.confirm(monitor,generation,request.params.previewId,request.params.expectedBindingVersion);
       case 'clearBinding':return service.clear(monitor,generation,request.params.expectedBindingVersion);
       case 'getSnapshot':return service.snapshot(monitor,generation);
-      case 'openSource':return service.openSource(monitor,request.params.expectedBindingVersion,request.params.line,options.openFile??openSourceFile);
+      case 'openSource':return service.openSource(monitor,request.params.expectedBindingVersion,request.params.line,options.openFile??openSourceFile,request.params.bindingId);
       case 'subscribe':void params;throw new HttpFailure(400,'订阅必须使用事件入口');
     }
   }

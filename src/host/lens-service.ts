@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { LensError, monitorKey, type Binding, type CandidateResult, type DocumentSnapshot, type Grant, type MonitorRef, type Preview, type SessionHints, type SourceStatus, type TaskScope, type ViewState } from '../contracts/index.js';
+import { LensError, MAX_DOCUMENTS, bindingsOf, monitorKey, type Binding, type BoundDocument, type CandidateResult, type DocumentSnapshot, type Grant, type MonitorRef, type Preview, type SessionHints, type SourceStatus, type TaskScope, type ViewState } from '../contracts/index.js';
 import { BindingStore } from '../store/binding-store.js';
 import { DocumentStream } from '../files/document-stream.js';
 import { authorizedPath, fileError, readAuthorized } from '../files/path-policy.js';
@@ -37,19 +37,27 @@ export class LensService {
     const read = await readAuthorized(this.store.grant(grantId), input), tasks = parseTasks(read.source, scope);
     const metadata: Omit<Preview, 'tasks'> = { id: randomUUID(), grantId, path: read.realPath, scope: structuredClone(scope), expiresAt: now + 5 * 60 * 1000 };
     if (this.previews.size >= 128) this.previews.delete(this.previews.keys().next().value!);
-    // Persist only proof metadata in the short-lived ticket, never 128 full document copies.
     this.previews.set(metadata.id, { preview: metadata, monitor: monitorKey(ref), generation, version: read.version });
     return structuredClone({ ...metadata, tasks });
   }
   async confirm(ref: MonitorRef, generation: number, previewId: string, expected: number): Promise<ViewState> {
-    this.ensureOpen(); const entry = this.previews.get(previewId), now = this.options.now?.() ?? Date.now();
-    if (!entry || entry.preview.expiresAt <= now) throw new LensError('expired', '预览已过期，请重新预览');
-    if (entry.monitor !== monitorKey(ref) || entry.generation !== generation) throw new LensError('conflict', '预览不属于当前监控视图');
-    const { preview } = entry, read = await readAuthorized(this.store.grant(preview.grantId), preview.path);
-    if (read.version !== entry.version) throw new LensError('conflict', '文档在预览后已变化，请重新预览');
-    parseTasks(read.source, preview.scope);
-    await this.store.bind(ref, { grantId: preview.grantId, path: preview.path, scope: preview.scope }, expected);
-    this.previews.delete(previewId); this.synchronize(ref); void this.notify(ref); return this.snapshot(ref, generation);
+    return this.confirmMany(ref, generation, [previewId], [], expected);
+  }
+  async confirmMany(ref: MonitorRef, generation: number, previewIds: string[], keepIds: string[], expected: number): Promise<ViewState> {
+    this.ensureOpen();
+    if (previewIds.length + keepIds.length > MAX_DOCUMENTS || new Set(previewIds).size !== previewIds.length) throw new LensError('invalid_request', '文档引用重复或数量超限');
+    const entries: PreviewRecord[] = [];
+    for (const id of previewIds) {
+      const entry = this.previews.get(id), now = this.options.now?.() ?? Date.now();
+      if (!entry || entry.preview.expiresAt <= now) throw new LensError('expired', '预览已过期，请重新预览');
+      if (entry.monitor !== monitorKey(ref) || entry.generation !== generation) throw new LensError('conflict', '预览不属于当前监控视图');
+      const { preview } = entry, read = await readAuthorized(this.store.grant(preview.grantId), preview.path);
+      if (read.version !== entry.version) throw new LensError('conflict', '文档在预览后已变化，请重新预览');
+      parseTasks(read.source, preview.scope); entries.push(entry);
+    }
+    await this.store.bindMany(ref, entries.map(({ preview }) => ({ grantId: preview.grantId, path: preview.path, scope: preview.scope })), keepIds, expected);
+    for (const id of previewIds) this.previews.delete(id);
+    this.synchronize(ref); void this.notify(ref); return this.snapshot(ref, generation);
   }
   async clear(ref: MonitorRef, generation: number, expected: number): Promise<ViewState> {
     this.ensureOpen(); await this.store.clear(ref, expected); this.synchronize(ref); void this.notify(ref); return this.snapshot(ref, generation);
@@ -60,33 +68,51 @@ export class LensService {
     if (!old.pool.keys.size) { this.pools.delete(old.binding.documentRealPath); old.pool.stop(); void old.pool.stream.close(); }
   }
   private synchronize(ref: MonitorRef): void {
-    const key = monitorKey(ref), binding = this.store.get(ref).binding, current = this.attached.get(key);
-    if (current?.binding.id === binding?.id) return;
-    this.detach(key); if (!binding) return;
-    let pool = this.pools.get(binding.documentRealPath); const fresh = !pool;
-    if (!pool) { pool = { stream: new DocumentStream(binding.documentRealPath, this.options.streamOptions), keys: new Set(), stop: () => undefined }; this.pools.set(binding.documentRealPath, pool); }
-    const releaseAccess = pool.stream.addAccess(this.store.grant(binding.grantId)); pool.keys.add(key);
-    this.attached.set(key, { ref: structuredClone(ref), binding, pool, releaseAccess });
-    if (fresh) { const owned = pool; pool.stop = pool.stream.subscribe(() => { for (const id of owned.keys) { const monitor = this.attached.get(id); if (monitor) void this.notify(monitor.ref); } }); }
+    const owner = monitorKey(ref), bindings = bindingsOf(this.store.get(ref));
+    const keyOf = (binding: Binding) => JSON.stringify([owner, binding.id]);
+    const wanted = new Set(bindings.map(keyOf));
+    for (const [key, item] of this.attached) if (monitorKey(item.ref) === owner && !wanted.has(key)) this.detach(key);
+    for (const binding of bindings) {
+      const key = keyOf(binding), current = this.attached.get(key);
+      if (current) { current.binding = binding; continue; }
+      let pool = this.pools.get(binding.documentRealPath); const fresh = !pool;
+      if (!pool) { pool = { stream: new DocumentStream(binding.documentRealPath, this.options.streamOptions), keys: new Set(), stop: () => undefined }; this.pools.set(binding.documentRealPath, pool); }
+      const releaseAccess = pool.stream.addAccess(this.store.grant(binding.grantId)); pool.keys.add(key);
+      this.attached.set(key, { ref: structuredClone(ref), binding, pool, releaseAccess });
+      if (fresh) {
+        const owned = pool;
+        pool.stop = pool.stream.subscribe(() => {
+          const monitors = new Map<string, MonitorRef>();
+          for (const id of owned.keys) { const item = this.attached.get(id); if (item) monitors.set(monitorKey(item.ref), item.ref); }
+          for (const monitor of monitors.values()) void this.notify(monitor);
+        });
+      }
+    }
   }
-  async snapshot(ref: MonitorRef, generation = 0, attempt = 0): Promise<ViewState> {
-    this.ensureOpen(); this.synchronize(ref); const row = this.store.get(ref), attachment = this.attached.get(monitorKey(ref));
-    const base: ViewState = { ...row, generation, snapshot: null, connection: 'standalone' };
-    if (!row.binding || !attachment) return base;
-    let document: DocumentSnapshot;
+  private async documentSnapshot(item: Attachment, ref: MonitorRef, version: number): Promise<BoundDocument> {
+    const binding = item.binding; let document: DocumentSnapshot;
     try {
-      await authorizedPath(this.store.grant(row.binding.grantId), row.binding.documentRealPath);
-      document = attachment.pool.stream.snapshot(row.binding.scope);
-      attachment.lastAllowed = document;
+      await authorizedPath(this.store.grant(binding.grantId), binding.documentRealPath);
+      document = item.pool.stream.snapshot(binding.scope); item.lastAllowed = document;
     } catch (error) {
-      const failure = fileError(error);
+      const failure = fileError(error), cached = item.lastAllowed;
       const status: SourceStatus = failure.code === 'missing' ? 'missing' : failure.code === 'unsupported' ? 'unsupported' : 'permission_denied';
-      // A revoked monitor cannot receive newer content through another monitor's valid grant.
-      const cached = attachment.lastAllowed;
       document = { revision: cached?.revision ?? '', status, cached: !!cached?.tasks, tasks: cached?.tasks ?? null, lastReadAt: cached?.lastReadAt ?? null, lastTaskChangeAt: cached?.lastTaskChangeAt ?? null, diagnostics: [failure.message] };
     }
+    return { binding, snapshot: { ...document, monitor: ref, bindingVersion: version } };
+  }
+  async snapshot(ref: MonitorRef, generation = 0, attempt = 0): Promise<ViewState> {
+    this.ensureOpen(); this.synchronize(ref); const row = this.store.get(ref), owner = monitorKey(ref);
+    const documents = await Promise.all(bindingsOf(row).map(binding => this.documentSnapshot(this.attached.get(JSON.stringify([owner, binding.id]))!, ref, row.bindingVersion)));
     if (this.store.get(ref).bindingVersion !== row.bindingVersion) { if (attempt >= 3) throw new LensError('busy', '绑定正在频繁变化'); return this.snapshot(ref, generation, attempt + 1); }
-    return { ...base, snapshot: { ...structuredClone(document), monitor: structuredClone(ref), bindingVersion: row.bindingVersion } };
+    // Leave room for the legacy first-document alias and transport envelopes (<16 MiB).
+    let bytes = 0;
+    for (const doc of documents) {
+      const size = Buffer.byteLength(JSON.stringify(doc));
+      if (bytes + size > 6 * 1024 * 1024) doc.snapshot = { ...doc.snapshot!, tasks: null, cached: false, status: 'unsupported', diagnostics: ['整组任务数据超限；此文档未计入，请减少绑定或缩小章节范围'] };
+      else bytes += size;
+    }
+    return structuredClone({ ...row, documents, generation, snapshot: documents[0]?.snapshot ?? null, connection: 'standalone' });
   }
   subscribe(ref: MonitorRef, generation: number, callback: (view: ViewState) => void): () => void {
     this.ensureOpen(); const key = monitorKey(ref), observer = { generation, callback }, set = this.observers.get(key) ?? new Set<Observer>();
@@ -97,17 +123,19 @@ export class LensService {
     const key = monitorKey(ref), epoch = (this.epochs.get(key) ?? 0) + 1; this.epochs.set(key, epoch);
     try {
       const view = await this.snapshot(ref); if (this.closed || this.epochs.get(key) !== epoch || view.bindingVersion !== this.store.get(ref).bindingVersion) return;
-      for (const observer of this.observers.get(key) ?? []) { try { observer.callback({ ...structuredClone(view), generation: observer.generation }); } catch { /* Isolate UI subscribers. */ } }
+      for (const observer of this.observers.get(key) ?? []) { try { observer.callback({ ...structuredClone(view), generation: observer.generation }); } catch { /* Subscriber isolation. */ } }
     } catch { /* A closed service has no live view to update. */ }
   }
-  async openSource(ref: MonitorRef, expected: number, line: number, opener: (file: string) => Promise<boolean>): Promise<{ opened: boolean; path: string; line: number }> {
+  async openSource(ref: MonitorRef, expected: number, line: number, opener: (file: string) => Promise<boolean>, bindingId?: string): Promise<{ opened: boolean; path: string; line: number }> {
     this.ensureOpen(); const row = this.store.get(ref);
     if (row.bindingVersion !== expected || !row.binding) throw new LensError('conflict', '源绑定已变化');
-    const read = await readAuthorized(this.store.grant(row.binding.grantId), row.binding.documentRealPath);
+    const binding = bindingId ? bindingsOf(row).find(item => item.id === bindingId) : row.binding;
+    if (!binding) throw new LensError('conflict', '文档不属于当前绑定');
+    const read = await readAuthorized(this.store.grant(binding.grantId), binding.documentRealPath);
     if (!Number.isSafeInteger(line) || line < 1 || line > read.source.split('\n').length) throw new LensError('invalid_request', '源行号无效');
     if (this.store.get(ref).bindingVersion !== expected) throw new LensError('conflict', '源绑定已变化');
     return { opened: await opener(read.realPath), path: read.realPath, line };
   }
-  resources() { return { documents: this.pools.size, monitors: this.attached.size, subscribers: [...this.observers.values()].reduce((n, set) => n + set.size, 0), watchers: [...this.pools.values()].reduce((n, pool) => n + pool.stream.resources().watchers, 0) }; }
+  resources() { return { documents: this.pools.size, monitors: new Set([...this.attached.values()].map(item => monitorKey(item.ref))).size, subscribers: [...this.observers.values()].reduce((n, set) => n + set.size, 0), watchers: [...this.pools.values()].reduce((n, pool) => n + pool.stream.resources().watchers, 0) }; }
   async close(): Promise<void> { if (this.closed) return; this.closed = true; this.previews.clear(); this.observers.clear(); await Promise.all([...this.pools.values()].map(pool => pool.stream.close())); this.pools.clear(); this.attached.clear(); this.epochs.clear(); }
 }

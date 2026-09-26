@@ -1,0 +1,54 @@
+import { test, expect, chromium } from '@playwright/test';
+import { createServer } from 'node:http';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { BindingStore } from '../../src/store/binding-store.js';
+import { LensService } from '../../src/host/lens-service.js';
+import { CdpSession } from '../../src/adapters/codex/cdp/session.js';
+import { CdpBridge } from '../../src/host/cdp-bridge/bridge.js';
+import { DesktopObserver } from '../../src/validation/desktop-observer.js';
+import { atomicFixtureWrite, exerciseFileLifecycle, measureVisibleUpdates, SMALL_DOCUMENT, waitUntil } from '../../src/validation/document-checks.js';
+import { AcceptanceReport } from '../../src/validation/acceptance-report.js';
+
+test('the acceptance helpers measure a real panel through an independent CDP reader, not service snapshots', async () => {
+  test.setTimeout(90000);
+  const root = await mkdtemp(path.join(tmpdir(), 'lens-acceptance-ci-'));
+  const html = await readFile('tests/fixtures/codex/contract-baseline/panes.html', 'utf8');
+  const server = createServer((_request, response) => { response.setHeader('content-type', 'text/html'); response.end(html); });
+  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address(); if (!address || typeof address === 'string') throw new Error('No address');
+  const context = await chromium.launchPersistentContext(path.join(root, 'browser'), { headless: true, args: ['--remote-debugging-address=127.0.0.1', '--remote-debugging-port=0'] });
+  const page = context.pages()[0]!; await page.goto(`http://127.0.0.1:${address.port}`);
+  const port = Number((await readFile(path.join(root, 'browser/DevToolsActivePort'), 'utf8')).split('\n')[0]);
+  const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json() as { url: string; webSocketDebuggerUrl: string }[];
+  const socket = targets.find(target => target.url === page.url())!.webSocketDebuggerUrl;
+  const connect = () => CdpSession.connect(socket, async () => { expect(new URL(socket).hostname).toBe('127.0.0.1'); });
+  const writer = await connect(), observer = new DesktopObserver(await connect());
+  const store = await BindingStore.open(path.join(root, 'state')), service = new LensService(store);
+  let bridge: CdpBridge | undefined;
+  try {
+    await observer.start(); await observer.assertUnoccupied();
+    const file = path.join(root, 'TASKS.md'); await atomicFixtureWrite(file, SMALL_DOCUMENT);
+    const monitor = { kind: 'thread' as const, sourceId: 'fixture', threadId: '11111111-1111-4111-8111-111111111111' };
+    const grant = await service.authorize(file, 'file'), preview = await service.preview(monitor, 0, grant.id, file, { kind: 'document' });
+    await service.confirm(monitor, 0, preview.id, 0);
+    bridge = await CdpBridge.attach(writer, service, { sourceId: 'fixture', bundle: await readFile('dist/inject/task-lens.js', 'utf8'), styles: await readFile('dist/inject/task-lens.css', 'utf8') });
+    await expect(observer.assertUnoccupied()).rejects.toThrow();
+    expect((await observer.capture()).threadId).toBe(monitor.threadId);
+    await observer.expand(monitor.threadId);
+    const observe = () => observer.observe(monitor.threadId), signal = new AbortController().signal;
+    await waitUntil(observe, value => value.ready && value.total === 2, signal);
+    expect((await observe()).groupsExpanded).toBe(true);
+    await page.getByLabel('输入', { exact: true }).fill('preserved draft');
+    await observer.expand(monitor.threadId);
+    await exerciseFileLifecycle(file, observe, signal);
+    const samples = await measureVisibleUpdates(file, observe, signal);
+    expect(samples).toHaveLength(20); expect(samples.every(value => Number.isFinite(value) && value >= 0)).toBe(true);
+    const report = new AcceptanceReport('controlled-fixture'); report.setLatency(samples);
+    expect(report.snapshot().acceptanceComplete).toBe(false);
+    expect(await readFile(file, 'utf8')).toBe(SMALL_DOCUMENT);
+    await expect(page.getByLabel('输入', { exact: true })).toHaveValue('preserved draft');
+    await bridge.close(); await observer.assertUnoccupied(); expect(await observer.rootCount()).toBe(0);
+  } finally { await bridge?.close(); observer.close(); writer.close(); await service.close(); await store.close(); await context.close(); await new Promise<void>(resolve => server.close(() => resolve())); await rm(root, { recursive: true, force: true }); }
+});

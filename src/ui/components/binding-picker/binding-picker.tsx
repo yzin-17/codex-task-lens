@@ -40,6 +40,12 @@ export function BindingPicker({ api, bindingVersion, hasBinding, initialGrantId,
     if (!grantId) return; setPreview(null); selected.current = null;
     void run(signal => api.call('listCandidates', { grantId }, signal), setCandidates);
   }
+  useEffect(() => {
+    if (initialGrantId) {
+      setGrantId(initialGrantId);
+      void run(signal => api.call('listCandidates', { grantId: initialGrantId }, signal), setCandidates);
+    }
+  }, [api, initialGrantId]);
   async function save(clear = false) {
     if (savingRef.current || (!clear && !preview)) return;
     savingRef.current = true; setSaving(true); setError('');

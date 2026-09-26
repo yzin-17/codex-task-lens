@@ -1,0 +1,83 @@
+import { afterEach, beforeEach, expect, it } from 'vitest';
+import { mkdtemp, writeFile, readFile, rm, symlink } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { BindingStore } from '../../src/store/binding-store.js';
+import { LensService } from '../../src/host/lens-service.js';
+import { DOCUMENT_SCOPE, documentsOf, type MonitorRef } from '../../src/contracts/index.js';
+import { summarizeDocuments } from '../../src/core/document-set.js';
+let root: string, store: BindingStore, service: LensService;
+const a: MonitorRef = { kind: 'thread', sourceId: 'fixture', threadId: 'a' };
+const b: MonitorRef = { kind: 'thread', sourceId: 'fixture', threadId: 'b' };
+beforeEach(async () => {
+  root = await mkdtemp(path.join(tmpdir(), 'lens-multi-'));
+  for (const name of ['a', 'b', 'c']) await writeFile(path.join(root, name + '.md'), `- [ ] ${name}\n- [x] done\n`);
+  store = await BindingStore.open(path.join(root, 'state'));
+  service = new LensService(store, { streamOptions: { stabilityMs: 20, pollMs: 80, debounceMs: 10 } });
+});
+afterEach(async () => { await service.close(); await store.close(); await rm(root, { recursive: true, force: true }); });
+async function preview(name: string, ref = a) { const grant = await service.authorize(path.join(root, name + '.md'), 'file'); return service.preview(ref, 0, grant.id, grant.displayPath, DOCUMENT_SCOPE); }
+it('counts documents independently, preserves members on removal and shares watchers', async () => {
+  const one = await preview('a'), two = await preview('b');
+  await service.confirmMany(a, 0, [one.id, two.id], [], 0);
+  await expect.poll(async () => summarizeDocuments(await service.snapshot(a)).total).toBe(4);
+  expect(summarizeDocuments(await service.snapshot(a))).toMatchObject({ completed: 2, warning: false, documents: 2 });
+  await service.confirm(b, 0, (await preview('a', b)).id, 0);
+  expect(service.resources()).toMatchObject({ documents: 2, monitors: 2 });
+  await writeFile(path.join(root, 'b.md'), '- [x] b\n- [x] done\n');
+  await expect.poll(async () => summarizeDocuments(await service.snapshot(a))).toMatchObject({ completed: 3, total: 4, warning: false });
+  const remaining = documentsOf(await service.snapshot(a))[1]!.binding.id;
+  await service.confirmMany(a, 0, [], [remaining], 1);
+  expect(summarizeDocuments(await service.snapshot(a))).toMatchObject({ completed: 2, total: 2, documents: 1 });
+  expect(store.get(b).binding?.documentRealPath).toBe(one.path);
+});
+it('rejects a changed preview or duplicate real file without partially saving the set', async () => {
+  await service.confirm(a, 0, (await preview('a')).id, 0);
+  const initial = store.get(a), two = await preview('b'), three = await preview('c');
+  await writeFile(path.join(root, 'c.md'), '- [x] changed after preview');
+  await expect(service.confirmMany(a, 0, [two.id, three.id], [], 1)).rejects.toMatchObject({ code: 'conflict' });
+  expect(store.get(a)).toEqual(initial);
+  await symlink(path.join(root, 'b.md'), path.join(root, 'alias.md'));
+  await expect(service.confirmMany(a, 0, [two.id, (await preview('alias')).id], [], 1)).rejects.toMatchObject({ code: 'conflict' });
+  expect(store.get(a)).toEqual(initial);
+});
+it('migrates v1 in memory, preserving the original until the next successful transaction', async () => {
+  await service.confirm(a, 0, (await preview('a')).id, 0);
+  const original = store.get(a).binding!;
+  await service.close(); await store.close();
+  const stateFile = path.join(root, 'state/state.json');
+  const legacy = JSON.parse(await readFile(stateFile, 'utf8'));
+  legacy.schemaVersion = 1; for (const monitor of legacy.monitors) delete monitor.bindings;
+  const bytes = JSON.stringify(legacy); await writeFile(stateFile, bytes);
+  store = await BindingStore.open(path.join(root, 'state')); service = new LensService(store);
+  expect(store.get(a).bindings).toEqual([original]); expect(await readFile(stateFile, 'utf8')).toBe(bytes);
+  await service.confirmMany(a, 0, [(await preview('b')).id], [original.id], 1);
+  await service.close(); await store.close();
+  expect(JSON.parse(await readFile(stateFile, 'utf8')).schemaVersion).toBe(2);
+  store = await BindingStore.open(path.join(root, 'state')); service = new LensService(store);
+  expect(store.get(a).bindings).toHaveLength(2); expect(store.get(a).bindings![0]!.id).toBe(original.id);
+});
+it('rejects another monitor member, stale set version and cross-generation previews', async () => {
+  await service.confirm(a, 0, (await preview('a')).id, 0);
+  await service.confirm(b, 0, (await preview('b', b)).id, 0);
+  const initial = store.get(a), ticket = await preview('c');
+  await expect(service.confirmMany(a, 0, [], [store.get(b).binding!.id], 1)).rejects.toMatchObject({ code: 'conflict' });
+  await expect(service.confirmMany(a, 1, [ticket.id], [], 1)).rejects.toMatchObject({ code: 'conflict' });
+  await expect(service.confirmMany(a, 0, [ticket.id], [], 0)).rejects.toMatchObject({ code: 'conflict' });
+  expect(store.get(a)).toEqual(initial);
+  await expect(service.openSource(a, 1, 1, async () => true, store.get(b).binding!.id)).rejects.toMatchObject({ code: 'conflict' });
+});
+it('keeps an unreadable member cached while another member continues updating', async () => {
+  const first = await preview('a'), second = await preview('b');
+  await service.confirmMany(a, 0, [first.id, second.id], [], 0);
+  await expect.poll(async () => summarizeDocuments(await service.snapshot(a)).warning).toBe(false);
+  await writeFile(path.join(root, 'b.md'), Buffer.from([255, 254]));
+  await expect.poll(async () => documentsOf(await service.snapshot(a))[1]?.snapshot?.status).toBe('unsupported');
+  await writeFile(path.join(root, 'a.md'), '- [x] a\n- [x] done\n');
+  await expect.poll(async () => summarizeDocuments(await service.snapshot(a))).toMatchObject({ completed: 3, total: 4, warning: true, partial: false });
+  const last = documentsOf(await service.snapshot(a));
+  expect(last[1]!.snapshot).toMatchObject({ cached: true, tasks: { completed: 1, total: 2 } });
+  await service.confirmMany(a, 0, [], [last[0]!.binding.id], 1);
+  expect(service.resources().documents).toBe(1);
+  expect(summarizeDocuments(await service.snapshot(a))).toMatchObject({ completed: 2, total: 2, warning: false });
+});

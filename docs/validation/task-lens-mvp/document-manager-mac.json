@@ -1,0 +1,45 @@
+{
+  "codeCommit": "5853235658c091c3614f4b3da47aa562cbe6a35a",
+  "capturedAt": "2026-09-26T16:19:04.862Z",
+  "codex": "26.924.22138",
+  "build": "b78293e3f9b4dc32e4d0e6b569f8d0a9175e97fbc5f5dba76ce0a6d0853cb01a",
+  "candidatesFirst": true,
+  "unconfirmedProgress": "进度",
+  "noJump": true,
+  "rails": {
+    "summary": {
+      "x": 548.75,
+      "y": 895.5,
+      "width": 458,
+      "height": 76
+    },
+    "footer": {
+      "x": 548.75,
+      "y": 1292.5,
+      "width": 458,
+      "height": 52.5
+    },
+    "scroll": {
+      "x": 548.75,
+      "y": 971.5,
+      "width": 458,
+      "height": 321
+    },
+    "popup": {
+      "x": 547.75,
+      "y": 786,
+      "width": 460,
+      "height": 560
+    }
+  },
+  "stickyRails": true,
+  "segmentAndTyping": true,
+  "manage": true,
+  "innerEscape": true,
+  "restoredScroll": true,
+  "savedProgress": "进度 3/5",
+  "cancelPreserved": true,
+  "hostUnchanged": true,
+  "cleanedRoots": 0,
+  "passed": true
+}

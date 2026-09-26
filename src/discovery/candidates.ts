@@ -10,6 +10,7 @@ export async function discoverCandidates(options:{grant:Grant;patterns?:string[]
   const {grant,hints,signal}=options,patterns=options.patterns??DEFAULT_PATTERNS,max=options.maxPaths??2000;
   if(patterns.length>16||patterns.some(pattern=>!pattern||pattern.length>256||path.isAbsolute(pattern)||pattern.split(/[\\/]/).includes('..')||pattern.includes('\0')))throw new LensError('invalid_request','扫描规则必须是授权目录内的相对 glob');
   const found=new Map<string,Candidate>(),diagnostics=new Set<string>();let checked=0,visited=0,incomplete=false;
+  for(const diagnostic of hints?.diagnostics.slice(0,20)??[])diagnostics.add(diagnostic);
   const check=()=>signal?.throwIfAborted();
   async function add(input:string,source:string):Promise<void>{
     check();if(checked>=max){incomplete=true;return;}checked++;

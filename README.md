@@ -1,70 +1,102 @@
 # Codex Task Lens · 任务透镜
 
-看清已经完成什么，还有什么待完成。
+嵌入 Codex 的任务清单面板，让长任务的进展一目了然。
 
-> 当前交付：**独立本地文档监控面板**，一期台账 **13 / 23**。已完成真实文件、绑定、监听、浏览器清单闭环；**尚未实现 Codex 内嵌面板和自动跟随当前对话**。原一期范围未缩减，Mac/CDP 后续任务继续保留。
+本地读取 Markdown Task 文档，逐项展示 **已完成／未完成**。独立于任何 Skill、Hooks、模型登记命令和 app-server；不修改 Task 文档，不推断代码是否完成，不估算工作量或 ETA。
 
-## 现在能做什么
+> Alpha：已提供 macOS CDP 接入、对话识别、内嵌面板与独立浏览器面板。受控 Chromium 测试不等于某个 Codex Desktop 版本的真机验收；实际环境与剩余门禁见 [兼容记录](docs/compatibility/macos.md) 和 [实施台账](docs/tasks/task-lens-mvp.md)。非 OpenAI 官方产品。
 
-选择普通 Markdown 任务文档，明确授权并预览整份文档或一个标题章节，再确认绑定。面板把未完成项放在上方、已完成项放在下方，两组默认展开，显示具体事项、原文详情、源行号和 `已完成 / 总项数`。
+## 安装与构建
 
-外部编辑勾选后自动更新；支持编辑器原子保存、重启恢复、文件删除与重建。源不可用时保留带明确标识的缓存，不把缓存说成当前有效进度。不同独立监控可以绑定不同文档，也可共享同一实际文件。
-
-不依赖任何 Skill、Hooks、模型登记命令或 app-server；不修改 Task 文档、Codex 配置或应用包，不发送消息，不推测任务正在做什么。整体工作量、百分比与 ETA 不属于一期。
-
-## 在 Mac 上运行独立面板
-
-需要 Node.js **24.x**；项目固定 pnpm **10.28.2**。在已包含本实现的分支中执行：
+需要 Node.js 24.x，pnpm 版本由仓库固定。
 
 ```bash
 corepack enable
 pnpm install --frozen-lockfile
-pnpm dev:standalone
+pnpm build
 ```
 
-命令构建并启动本地服务，在 macOS 上打开默认浏览器。选择“选择文档”，输入文件绝对路径，确认只读授权，预览计数范围后点击“确认绑定”。选择项目目录时会扫描默认任务目录；没有候选仍可直接输入文件路径。当前使用路径输入，不包含原生文件选择器。
+## 在 Codex 内使用
 
-已经构建过时：
+连接你已开放的本机 CDP 端口，不会自动退出或重启 Codex：
+
+```bash
+pnpm run doctor -- --cdp-port 9341
+pnpm start -- --cdp-port 9341 --workspace "$PWD"
+```
+
+`--workspace` 表示明确授权读取该目录内的 Markdown。点击输入框底部左侧、权限按钮之后的「进度」入口，以浮窗查看清单。入口显示已完成／总数与勾选比例圆环，关闭浮窗仍自动更新，不撑高输入区。标题栏图钉可固定浮窗，固定后外点不收起；按住标题栏拖动，范围限制在当前对话列，方向键也可通过左侧拖动柄移动。取消固定恢复外点关闭，× 始终可关闭；切换对话清理旧浮窗。首次点击「绑定 Task 文档」，在「文档」中添加路径、点击「预览文件」，最后确认绑定；以后切换对话自动跟随各自绑定。
+
+支持一份或多份 `.md`／`.markdown`：可点击「选择文件…」使用 macOS 文件多选，也可在路径框每行输入一个绝对路径。最多 16 份，重复的实际文件不重复计数；每份可选择整篇或章节。新增、移除先进入草稿，确认整组后才保存；取消不修改原绑定。浮窗按文件列出未完成、已完成项；某份异常不阻塞其他文档。
+
+不传 `--workspace` 也可在面板中输入文件或目录路径并授权。可用 `--app "/实际路径/Codex.app"` 指定应用。不同 Codex profile 使用不同且固定的 `--source-id`；不要随端口或窗口变化改这个标识。
+
+需要结合当前对话的本地记录查找文档时，显式授权记录目录：
+
+```bash
+pnpm start -- --cdp-port 9341 --workspace "$PWD" \
+  --session-root "${CODEX_HOME:-$HOME/.codex}" --allow-session-read
+```
+
+仅适配已声明的 rollout JSONL 格式与明确文件引用。日志缺失、无法打开、新格式或路径有歧义时，仍可扫描授权目录、手动绑定；不会猜“最近活动的会话就是当前对话”。已授权目录初始化失败会显示降级诊断，不再导致整个工具退出；修复数据源后重新启动恢复线索。
+
+## 独立模式
 
 ```bash
 pnpm start -- --standalone
-# 独立测试数据目录和指定本地端口：
-pnpm start -- --standalone --data-dir "$HOME/Library/Application Support/CodexTaskLens-Test" --port 9342
+# 或开发时构建并启动
+pnpm dev:standalone
 ```
 
-`Ctrl+C` 停止本工具，不停止或重启 Codex。正常使用不需要开放 Codex 的 CDP 端口。
+macOS 自动打开本地浏览器面板。可手动选择已有绑定或独立文档；CDP 连接失败不影响这个模式。支持文件实时更新、原子保存、删除重建、章节选择、绑定持久化和源文件打开。
 
-访问凭证通过首次打开的 URL fragment 交给页面后立即从地址栏清除，只存在内存中。**直接刷新页面不会保留凭证**；当前源码版可停止工具后重新启动，自动重新打开已授权入口，文档绑定仍保留。不要分享最初的带凭证地址。`--no-open` 用于程序化集成／测试，不会把凭证打印到日志；程序可通过 `startStandalone()` 的返回值取得入口。
+每次运行的浏览器凭证只在内存中使用，不打印到日志。直接刷新或关闭页面后，当前版本需要重新启动工具以重新打开授权入口，文档绑定保留。`--no-open` 适合仅使用内嵌面板；不会输出可复制的带凭证网址。
 
-## 数据与安全边界
+## 绑定数据升级
 
-工具状态只写入 `~/Library/Application Support/CodexTaskLens/`，可用 `--data-dir` 指定其他绝对路径。单文件授权不会自动扩大成父目录授权；目录读取经过 realpath 检查，不跟随越权符号链接。状态文件使用原子替换和单写入者锁。损坏状态会保留原件并报错；恢复前先停止工具、备份数据目录，不能删除不明进程的锁或覆盖原文件。
+本版将绑定存储升级为 schema v2。旧单文件绑定读取为一项数组，保留身份、范围和版本；只在下一次成功保存时写入新格式。回退旧版本前须备份状态目录；旧二进制不能读取 v2，不应手动删除状态来绕过错误。
 
-本机 API 只监听 `127.0.0.1`，要求运行凭证以及准确的 Host／Origin。源文件操作只接受已绑定的授权路径，系统打开使用固定程序和参数数组，不执行文档中的命令、HTML、远程图片或 JavaScript 链接。工具不是抵抗已取得本机账户权限的恶意软件的安全边界。
+## 诊断、停止与边界
 
-默认源上限：2 MiB、5,000 个叶子任务、50,000 行、10,000 个标题、单标题 512 字符。解析展开后的数据和扫描也有大小／数量边界；超限显示明确错误或扫描不完整提示，不静默截断为完成。文件大小与叶子数只是上限，不是所有极端组合均能解析的保证。
+`pnpm start -- --help` 查看参数；`Ctrl+C` 只停止本工具。没有运行中的 Codex 时，才可显式使用 `--launch-codex` 调试启动；已有实例不会被强退，未知进程占用的端口不会被接管。
 
-## 开发和验证
+**关闭面板或停止 Task Lens 不会关闭 Codex 的 CDP 调试端口。** 需正常退出调试启动的 Codex，再从普通应用入口启动。CDP 的回环地址不是认证边界，同机进程仍可能连接；不要转发到公网或运行不可信的本地程序。
+
+工具只写自己的状态目录（默认 `~/Library/Application Support/CodexTaskLens/`），不写 `.app`、`app.asar`、登录文件或模型配置；不读取 `auth.json`，不上传聊天和文件。不要同时启动多个工具实例接管同一个 Codex renderer。
+
+## 验证
 
 ```bash
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm build
+pnpm lint && pnpm typecheck && pnpm test && pnpm build
 pnpm exec playwright install chromium
 pnpm test:ui
+# 只读结构探测
+pnpm test:mac -- --enable --probe-only --cdp-port 9341
 ```
 
-Node 产物在 `dist/node/`，独立面板在 `dist/ui/`。`dist/inject/task-lens.js` **目前仅为构建占位产物**，不具备注入功能。`--cdp-port`、`doctor`、`test:mac` 入口尚未实现，不要以构建成功判断 Codex 接入完成。
+结构探测不代表 I2 完整通过。需要实际验收时，先停止 Task Lens（保留 Codex 运行），在干净工作树的交互终端执行：
 
-已验证代码基线 `06e8c234074dfc9bdf18ac802aeee36779650a56`：Linux 与 GitHub 托管 macOS 的 lint／typecheck／62 项核心测试／build 均通过，Linux Chromium 的 13 项浏览器测试通过，其中包含真实文件和实际服务进程重启。托管 macOS 核心测试**不等于用户 Mac 上的 Codex Desktop 真机验收**，详见 [验证索引](docs/validation/task-lens-mvp/README.md)。
+```bash
+pnpm build
+pnpm test:mac:acceptance -- --enable --interactive --cdp-port 9341
+```
 
-## 接下来的接入工作
+向导创建独立临时仓库、两个 worktree 和 Task 文档，引导 A→B→A 真实面板绑定；自动测试文件生命周期、20 次可见更新时延、50 次工具启停清理与独立降级。侧聊、宿主操作等场景逐项记录人工 PASS／FAIL／SKIP；跳过不算通过。可选日志来源授权与完整步骤见 [I2 向导说明](docs/validation/task-lens-mvp/I2.md)。
 
-先按 [Mac 兼容资料交接](docs/compatibility/macos.md) 完成 T02，补录用户已经验证过的版本和脱敏结构样例，再实施会话记录、可信端点、CDP／DOM adapter、bridge 和内嵌面板。不能用猜测的 DOM 字段或托管 CI 代替真实兼容基线。
+报告保存在 `test-results/mac-acceptance-*/report.json` 和 `report.md`，包含原始测量、版本、构建指纹与脱敏身份，不含正文或凭证。不自动上传、不修改日常绑定、不勾选 Task；验收向导只修改它创建的临时文件。受控 CI 验证向导功能，不冒充用户 Mac 结果。
 
-- [一期 Spec](docs/specs/2026-09-26-task-lens-mvp.md)
-- [实施台账与剩余任务](docs/tasks/task-lens-mvp.md)
-- [后续 TODO](docs/TODO.md)
+## 文档
 
-非 OpenAI 官方产品。当前实现未复制参考项目的源码、主题或美术资源。
+- [一期 Spec](docs/specs/2026-09-26-task-lens-mvp.md) · [Task 台账](docs/tasks/task-lens-mvp.md) · [验证索引](docs/validation/task-lens-mvp/README.md)
+- [开发与运行说明](docs/development.md) · [适配契约来源](docs/compatibility/adapter-contracts.md) · [后续 TODO](docs/TODO.md)
+- [I2 验收向导](docs/validation/task-lens-mvp/I2.md) · [验收工具测试](docs/validation/task-lens-mvp/I2-runner.md) · [R1 状态](docs/validation/task-lens-mvp/R1.md)
+
+- [工具栏浮窗与多文档修订台账](docs/tasks/toolbar-multidoc.md) · [修订验证](docs/validation/task-lens-mvp/toolbar-multidoc-2026-09-26.md)
+
+## 文档页的已选管理
+
+「文档」页顶部固定显示已选数量、前两个文件名和 +N；中间优先展示已授权范围内的候选，手动路径使用「文件｜目录」分段切换；文件模式同时支持一个或多个路径（每行一个），无需勾选，点击「预览文件」才读取所列文件；目录模式点击「查找文档」才读取该目录。「选择文件…」仍是原来的系统文件选择器，不新增目录混选。
+
+添加/预览后留在原位置，可连续添加。点击顶部「管理」、文件标签或 +N，在同一浮窗调整范围、移除文档和处理错误；章节支持搜索，返回保留添加区滚动位置。底部固定显示新增/移除/范围更改和确认操作。工具栏只统计已保存的绑定，取消不改原绑定。
+
+实现与验收见 [文档页修订记录](docs/validation/task-lens-mvp/document-manager-2026-09-27.md)。
