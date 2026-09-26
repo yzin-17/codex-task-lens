@@ -1,0 +1,38 @@
+{
+  "commit": "8767f9df49727e26fce4663c21d001dce26348b5",
+  "capturedAt": "2026-09-26T15:01:45.807Z",
+  "codex": "26.924.22138",
+  "build": "3806e182c86ce24d2c39128651823394ae3bbbff314797bb86d9ea432869f3a6",
+  "textareaTyped": true,
+  "selectValue": "file",
+  "singleInputTyped": true,
+  "multiDocumentUiConfirmed": true,
+  "percent": "50",
+  "pinnedOutside": true,
+  "drag": {
+    "before": {
+      "x": 547.75,
+      "y": 786,
+      "width": 460,
+      "height": 560
+    },
+    "after": {
+      "x": 687.75,
+      "y": 586,
+      "width": 460,
+      "height": 560
+    }
+  },
+  "leftEdgeClamped": {
+    "x": 298.5,
+    "y": 52,
+    "width": 460,
+    "height": 560
+  },
+  "positionSurvivesUpdate": true,
+  "unpinOutsideCloses": true,
+  "closePinned": true,
+  "hostUnchanged": true,
+  "cleanup": true,
+  "passed": true
+}
