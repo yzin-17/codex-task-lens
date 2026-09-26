@@ -25,7 +25,9 @@ pnpm run doctor -- --cdp-port 9341
 pnpm start -- --cdp-port 9341 --workspace "$PWD"
 ```
 
-`--workspace` 表示明确授权读取该目录内的 Markdown。展开输入区附近的“任务清单”，点击“绑定 Task 文档”后自动查找已授权目录内的候选；预览整份文档或一个章节，确认绑定。以后切换对话时跟随对应绑定，首次选择不会自动替你确认。
+`--workspace` 表示明确授权读取该目录内的 Markdown。点击输入框底部左侧、权限按钮之后的「任务」入口，以浮窗查看清单。入口显示已完成／总数，关闭浮窗仍自动更新，不撑高输入区。首次点击「绑定 Task 文档」，在「文档」中添加文件、明确授权并预览，最后确认绑定；以后切换对话自动跟随各自绑定。
+
+支持一份或多份 `.md`／`.markdown`：可点击「选择文件…」使用 macOS 文件多选，也可在路径框每行输入一个绝对路径。最多 16 份，重复的实际文件不重复计数；每份可选择整篇或章节。新增、移除先进入草稿，确认整组后才保存；取消不修改原绑定。浮窗按文件列出未完成、已完成项；某份异常不阻塞其他文档。
 
 不传 `--workspace` 也可在面板中输入文件或目录路径并授权。可用 `--app "/实际路径/Codex.app"` 指定应用。不同 Codex profile 使用不同且固定的 `--source-id`；不要随端口或窗口变化改这个标识。
 
@@ -49,6 +51,10 @@ pnpm dev:standalone
 macOS 自动打开本地浏览器面板。可手动选择已有绑定或独立文档；CDP 连接失败不影响这个模式。支持文件实时更新、原子保存、删除重建、章节选择、绑定持久化和源文件打开。
 
 每次运行的浏览器凭证只在内存中使用，不打印到日志。直接刷新或关闭页面后，当前版本需要重新启动工具以重新打开授权入口，文档绑定保留。`--no-open` 适合仅使用内嵌面板；不会输出可复制的带凭证网址。
+
+## 绑定数据升级
+
+本版将绑定存储升级为 schema v2。旧单文件绑定读取为一项数组，保留身份、范围和版本；只在下一次成功保存时写入新格式。回退旧版本前须备份状态目录；旧二进制不能读取 v2，不应手动删除状态来绕过错误。
 
 ## 诊断、停止与边界
 
@@ -84,3 +90,5 @@ pnpm test:mac:acceptance -- --enable --interactive --cdp-port 9341
 - [一期 Spec](docs/specs/2026-09-26-task-lens-mvp.md) · [Task 台账](docs/tasks/task-lens-mvp.md) · [验证索引](docs/validation/task-lens-mvp/README.md)
 - [开发与运行说明](docs/development.md) · [适配契约来源](docs/compatibility/adapter-contracts.md) · [后续 TODO](docs/TODO.md)
 - [I2 验收向导](docs/validation/task-lens-mvp/I2.md) · [验收工具测试](docs/validation/task-lens-mvp/I2-runner.md) · [R1 状态](docs/validation/task-lens-mvp/R1.md)
+
+- [工具栏浮窗与多文档修订台账](docs/tasks/toolbar-multidoc.md) · [修订验证](docs/validation/task-lens-mvp/toolbar-multidoc-2026-09-26.md)
