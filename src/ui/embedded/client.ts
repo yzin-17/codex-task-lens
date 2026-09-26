@@ -7,6 +7,8 @@ export class EmbeddedClient implements LensClient {
   private watchers = new Set<{ view: (view: ViewState) => void; connection: (message: string | undefined) => void }>();
   private ended = false;
   private online = true;
+  private snapshotVersion = 0;
+  private latestView?: ViewState;
   readonly monitor: MonitorRef;
   constructor(private config: EmbeddedConfiguration, readonly identity: PaneIdentity, private send: (payload: string) => void) {
     this.monitor = { kind: 'thread', sourceId: config.sourceId, threadId: identity.threadId! };
@@ -28,18 +30,26 @@ export class EmbeddedClient implements LensClient {
     if (signal.aborted || this.ended) return Promise.resolve();
     return new Promise(resolve => {
       const watcher = { view: onView, connection: onConnection }; this.watchers.add(watcher);
+      if (this.latestView) onView(this.latestView);
+      const versionAtRequest = this.snapshotVersion;
       const stop = () => { this.watchers.delete(watcher); signal.removeEventListener('abort', stop); resolve(); }; signal.addEventListener('abort', stop, { once: true });
-      void this.call('getSnapshot', {}, signal).then(view => { if (!signal.aborted) onView({ ...view, connection: 'connected' }); }).catch(error => { if (!signal.aborted) onConnection(error instanceof Error ? error.message : '连接失败'); });
+      void this.call('getSnapshot', {}, signal).then(view => {
+        // A slow initial read must not overwrite a more recent pushed snapshot.
+        if (!signal.aborted && this.snapshotVersion === versionAtRequest) onView({ ...view, connection: 'connected' });
+      }).catch(error => { if (!signal.aborted) onConnection(error instanceof Error ? error.message : '连接失败'); });
     });
   }
   accept(event: EmbeddedEvent): void {
     if (this.ended || event.paneId !== this.identity.paneId || event.generation !== this.identity.generation) return;
     if (event.kind === 'reply') { const pending = this.pending.get(event.requestId); if (pending) { pending.cleanup(); if (event.ok) pending.resolve(event.result); else pending.reject(new Error(event.error ?? '请求失败')); } }
-    else if (monitorKey(event.view.monitor) === monitorKey(this.monitor) && event.view.generation === this.identity.generation) for (const watcher of this.watchers) watcher.view(event.view);
+    else if (monitorKey(event.view.monitor) === monitorKey(this.monitor) && event.view.generation === this.identity.generation) {
+      this.snapshotVersion++; this.latestView = event.view;
+      for (const watcher of this.watchers) watcher.view(event.view);
+    }
   }
   setOnline(online: boolean): void { if (online === this.online) return; this.online = online; for (const watcher of this.watchers) watcher.connection(online ? undefined : 'CDP 已断开，请检查本地进程'); }
   close(): void {
     if (this.ended) return; this.ended = true;
-    for (const pending of this.pending.values()) { pending.cleanup(); pending.reject(new Error('对话已切换')); } this.pending.clear(); this.watchers.clear();
+    for (const pending of this.pending.values()) { pending.cleanup(); pending.reject(new Error('对话已切换')); } this.pending.clear(); this.watchers.clear(); this.latestView = undefined;
   }
 }

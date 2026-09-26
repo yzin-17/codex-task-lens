@@ -14,6 +14,15 @@ export function visible(node: Element): boolean {
   const rect = node.getBoundingClientRect(), style = node.ownerDocument.defaultView?.getComputedStyle(node);
   return node.isConnected && rect.width > 0 && rect.height > 0 && style?.visibility !== 'hidden' && style?.display !== 'none';
 }
+function activeMarker(node: Element, region: Element): boolean {
+  // A conversation marker may be an empty, zero-height element next to the composer.
+  for (let current: Element | null = node; current; current = current.parentElement) {
+    const style = current.ownerDocument.defaultView?.getComputedStyle(current);
+    if (!current.isConnected || current.hasAttribute('hidden') || current.getAttribute('aria-hidden') === 'true' || style?.display === 'none' || style?.visibility === 'hidden') return false;
+    if (current === region) return true;
+  }
+  return false;
+}
 export type PaneSelection = { paneId: string; generation: number; threadId: string | null; anchor: HTMLElement; editor: Element };
 /** Never uses sidebar titles, last DOM element, activity timestamps or React internals. */
 export function createDomAdapter(doc: Document) {
@@ -30,11 +39,16 @@ export function createDomAdapter(doc: Document) {
           if ([...region.querySelectorAll(editorSelector)].filter(visible).length !== 1) break;
           const nodes = [...region.querySelectorAll(identitySelector)];
           if (region.matches(identitySelector)) nodes.unshift(region);
-          values = nodes.filter(visible).flatMap(node => THREAD_ATTRIBUTES.filter(name => node.hasAttribute(name)).map(name => node.getAttribute(name)!));
+          values = nodes.filter(node => activeMarker(node, region!)).flatMap(node => THREAD_ATTRIBUTES.filter(name => node.hasAttribute(name)).map(name => node.getAttribute(name)!));
           if (values.length) break;
         }
-        if (!region || region === doc.body || !values.length || used.has(region)) continue;
         const shell = editor.closest<HTMLElement>('[data-composer-root],[class*="_ComposerLayoutRoot_"],form');
+        // An identity-less known composer can show an honest unknown state. An arbitrary textarea cannot.
+        if (!values.length || !region || region === doc.body) {
+          if (!shell || [...shell.querySelectorAll(editorSelector)].filter(visible).length !== 1) continue;
+          region = shell; values = [];
+        }
+        if (used.has(region)) continue;
         const anchor = shell && region.contains(shell) ? shell : region;
         if (anchor === doc.body || anchor === doc.documentElement || anchor.matches('[contenteditable],textarea')) continue;
         const threadId = uniqueThread(values), previous = identities.get(editor);
