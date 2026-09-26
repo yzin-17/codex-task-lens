@@ -6,7 +6,7 @@ export const AUTOMATED_CHECKS = ['environment', 'conversation_a', 'conversation_
 export const OPERATOR_CHECKS = ['multiple_windows', 'auxiliary_and_unknown', 'worktree_and_shared_document', 'session_candidates', 'host_controls', 'theme_and_layout', 'page_reload_and_disconnect', 'missed_event_recovery', 'security_boundaries'] as const;
 export type CheckId = typeof AUTOMATED_CHECKS[number] | typeof OPERATOR_CHECKS[number];
 export type CheckStatus = 'pending' | 'passed' | 'failed' | 'blocked';
-export type CheckResult = { id: CheckId; evidence: 'measured' | 'operator'; status: CheckStatus; durationMs: number; reason: string };
+export type CheckResult = { id: CheckId; evidence: 'measured' | 'operator' | 'mixed'; status: CheckStatus; durationMs: number; reason: string };
 export type EnvironmentEvidence = { platform: string; architecture: string; macOS: string; codexVersion: string; node: string; signedEndpoint: boolean; commit: string | null; artifactHash: string; cleanWorktree: boolean };
 export function percentile95(samples: readonly number[]): number {
   if (samples.length !== 20 || samples.some(value => !Number.isFinite(value) || value < 0)) throw new Error('Exactly twenty finite nonnegative measurements are required');
@@ -23,7 +23,7 @@ export class AcceptanceReport {
   private identities: { stage: 'a' | 'b' | 'return_a'; targetHash: string; threadHash: string; identifiedPanes: number }[] = [];
   private cycles: { iteration: number; rootsAfterStop: number; documentsAfterStop: number; subscribersAfterStop: number }[] = [];
   constructor(readonly provenance: 'codex-desktop' | 'controlled-fixture') {
-    for (const id of AUTOMATED_CHECKS) this.checks.set(id, { id, evidence: 'measured', status: 'pending', durationMs: 0, reason: 'not_run' });
+    for (const id of AUTOMATED_CHECKS) this.checks.set(id, { id, evidence: id === 'standalone_fallback' ? 'mixed' : 'measured', status: 'pending', durationMs: 0, reason: 'not_run' });
     for (const id of OPERATOR_CHECKS) this.checks.set(id, { id, evidence: 'operator', status: 'pending', durationMs: 0, reason: 'not_observed' });
   }
   private hash(value: string): string { return createHash('sha256').update(this.salt + value).digest('hex').slice(0, 24); }
@@ -35,7 +35,7 @@ export class AcceptanceReport {
   addCycle(iteration: number, resources: { roots: number; documents: number; subscribers: number }): void {
     this.cycles.push({ iteration, rootsAfterStop: resources.roots, documentsAfterStop: resources.documents, subscribersAfterStop: resources.subscribers });
   }
-  finish(id: CheckId, status: Exclude<CheckStatus, 'pending'>, durationMs = 0, reason = status): void {
+  finish(id: CheckId, status: Exclude<CheckStatus, 'pending'>, durationMs = 0, reason: string = status): void {
     const old = this.checks.get(id);
     if (!old || old.status !== 'pending' || !['passed', 'failed', 'blocked'].includes(status) || !Number.isFinite(durationMs) || durationMs < 0) throw new Error('Invalid or duplicate check result');
     if (!/^[a-z0-9_]{1,80}$/.test(reason)) throw new Error('Report reasons must be fixed diagnostic codes, not private exception text');
