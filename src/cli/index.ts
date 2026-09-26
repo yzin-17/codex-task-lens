@@ -40,9 +40,10 @@ async function main() {
   if (options.doctor) { console.log(JSON.stringify(await doctor(options), null, 2)); return; }
   const connected = wantsCodex(options) ? await startCodex({ ...options, cdpPort: options.cdpPort ?? 9341 }) : null;
   const runtime = connected ?? await startStandalone(options);
-  console.log(`Codex Task Lens 已启动：${runtime.origin}（访问凭证未写入日志）`);
-  if (connected) console.log(connected.status().diagnostic);
+  // Readiness must not be observable before graceful shutdown is installed.
   const stop = () => { process.off('SIGINT', stop); process.off('SIGTERM', stop); void runtime.close().catch(() => { console.error('关闭工具失败'); process.exitCode = 1; }); };
   process.once('SIGINT', stop); process.once('SIGTERM', stop);
+  console.log(`Codex Task Lens 已启动：${runtime.origin}（访问凭证未写入日志）`);
+  if (connected) console.log(connected.status().diagnostic);
 }
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) void main().catch(error => { console.error(error instanceof LensError ? error.message : 'Task Lens 操作失败；运行 pnpm doctor 检查环境'); process.exitCode = 1; });
