@@ -34,9 +34,11 @@ export class CdpBridge {
     await this.peer.send('Page.enable'); await this.peer.send('Runtime.enable');
     const tree = await this.peer.send('Page.getFrameTree'); const frame = (tree.frameTree as { frame?: { id?: string } } | undefined)?.frame;
     if (!frame?.id) throw new LensError('unsupported', '无法确定顶层 renderer'); this.frameId = frame.id;
-    const world = await this.peer.send('Page.createIsolatedWorld', { frameId: this.frameId, worldName: 'CodexTaskLens-' + this.nonce.slice(0, 16) });
+    // Reuse one tool-owned world so a crashed predecessor can be disposed before replacing its module.
+    const world = await this.peer.send('Page.createIsolatedWorld', { frameId: this.frameId, worldName: 'CodexTaskLens' });
     if (!Number.isSafeInteger(world.executionContextId)) throw new LensError('unsupported', '无法建立隔离的执行上下文');
     this.contextId = world.executionContextId as number;
+    await this.call('function(){ return globalThis.CodexTaskLensBuild?.dispose(); }');
     this.stops.push(this.peer.on('Runtime.bindingCalled', event => { void this.receive(event).catch(() => undefined); }));
     this.stops.push(this.peer.on('Runtime.executionContextDestroyed', event => { if (event.executionContextId === this.contextId) void this.close(false); }));
     this.stops.push(this.peer.on('Runtime.executionContextsCleared', () => { void this.close(false); }));
@@ -48,7 +50,7 @@ export class CdpBridge {
     const config: EmbeddedConfiguration = { bindingName: this.bindingName, nonce: this.nonce, sourceId: this.options.sourceId, styles: this.options.styles, ...(this.options.initialGrantId ? { initialGrantId: this.options.initialGrantId } : {}) };
     await this.call('function(config){ return globalThis.CodexTaskLensBuild.install(config); }', [config]);
     await this.refresh();
-    this.timer = setInterval(() => { void this.refresh().catch(() => this.close(false)); }, this.options.refreshMs ?? 500);
+    if (!this.stopped) this.timer = setInterval(() => { void this.refresh().catch(() => this.close()); }, this.options.refreshMs ?? 500);
   }
   get isClosed(): boolean { return this.stopped; }
   refresh(): Promise<void> {

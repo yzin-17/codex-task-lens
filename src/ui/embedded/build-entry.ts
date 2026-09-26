@@ -1,6 +1,6 @@
 import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { createDomAdapter, type PaneSelection } from '../../adapters/codex/dom/selection.js';
+import { createDomAdapter, THREAD_ATTRIBUTES, type PaneSelection } from '../../adapters/codex/dom/selection.js';
 import type { EmbeddedConfiguration, EmbeddedEvent, PaneIdentity } from '../../contracts/embedded.js';
 import { EmbeddedClient } from './client.js';
 import { EmbeddedPanel } from './panel.js';
@@ -10,7 +10,7 @@ type Instance = { inspect: () => PaneIdentity[]; receive: (event: EmbeddedEvent)
 let instance: Instance | undefined;
 export function install(config: EmbeddedConfiguration): void {
   dispose();
-  const binding = (globalThis as unknown as Record<string, unknown>)[config.bindingName];
+  const globals = globalThis as unknown as Record<string, unknown>, binding = globals[config.bindingName];
   if (typeof binding !== 'function') throw new Error('Task Lens bridge unavailable');
   const adapter = createDomAdapter(document), entries = new Map<string, Entry>(); let disposed = false, queued = false, heartbeat = Date.now();
   const remove = (entry: Entry) => { entry.client?.close(); entry.root.unmount(); entry.stopEvents(); entry.host.remove(); };
@@ -31,19 +31,35 @@ export function install(config: EmbeddedConfiguration): void {
       entries.set(selection.paneId, { host, root, selection, client, stopEvents: () => { for (const type of eventTypes) host.removeEventListener(type, stop); } });
     }
     const dark = document.documentElement.classList.contains('dark') || document.documentElement.dataset.theme === 'dark' || getComputedStyle(document.documentElement).colorScheme === 'dark';
-    for (const entry of entries.values()) { entry.host.dataset.theme = dark ? 'dark' : 'auto'; entry.client?.setOnline(Date.now() - heartbeat < 5000); }
+    for (const entry of entries.values()) {
+      const theme = dark ? 'dark' : 'auto';
+      // Avoid observing our own identical attribute writes forever.
+      if (entry.host.dataset.theme !== theme) entry.host.dataset.theme = theme;
+      entry.client?.setOnline(Date.now() - heartbeat < 5000);
+    }
     return selections.map(({ paneId, generation, threadId }) => ({ paneId, generation, threadId }));
   };
   const observer = new MutationObserver(() => { if (!queued) { queued = true; queueMicrotask(() => { queued = false; refresh(); }); } });
-  observer.observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['data-above-composer-conversation-id', 'data-conversation-id', 'data-thread-id', 'hidden', 'class', 'data-theme', 'style'] });
+  observer.observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: [...THREAD_ATTRIBUTES, 'hidden', 'class', 'data-theme', 'style'] });
   const timer = setInterval(refresh, 1000);
   instance = {
     inspect: () => { heartbeat = Date.now(); return refresh(); },
     receive: event => { refresh(); entries.get(event.paneId)?.client?.accept(event); },
-    dispose: () => { if (disposed) return; disposed = true; observer.disconnect(); clearInterval(timer); for (const entry of entries.values()) remove(entry); entries.clear(); },
+    dispose: () => {
+      if (disposed) return; disposed = true; observer.disconnect(); clearInterval(timer);
+      for (const entry of entries.values()) remove(entry); entries.clear();
+      if (globals[config.bindingName] === binding) Reflect.deleteProperty(globals, config.bindingName);
+    },
     resources: () => ({ panes: entries.size, observers: disposed ? 0 : 1, timers: disposed ? 0 : 1 }),
   };
   refresh();
+}
+/** Read-only compatibility input; does not install UI, observers, bindings or timers. */
+export function probe() {
+  return createDomAdapter(document).scan().map(({ paneId, generation, threadId, anchor, editor }) => ({
+    paneId, generation, threadId, anchorTag: anchor.tagName, editorTag: editor.tagName,
+    attributes: THREAD_ATTRIBUTES.filter(attribute => !!document.querySelector(`[${attribute}]`)),
+  }));
 }
 export function inspect(): PaneIdentity[] { return instance?.inspect() ?? []; }
 export function receive(event: EmbeddedEvent): void { instance?.receive(event); }

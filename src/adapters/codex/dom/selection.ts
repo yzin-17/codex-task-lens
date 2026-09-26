@@ -17,11 +17,11 @@ export function visible(node: Element): boolean {
 export type PaneSelection = { paneId: string; generation: number; threadId: string | null; anchor: HTMLElement; editor: Element };
 /** Never uses sidebar titles, last DOM element, activity timestamps or React internals. */
 export function createDomAdapter(doc: Document) {
-  let nextPane = 0;
+  let nextPane = 0, active = new Set<Element>();
   const identities = new WeakMap<Element, { paneId: string; generation: number; threadId: string | null; anchor: HTMLElement }>();
   return {
     scan(): PaneSelection[] {
-      const selected: PaneSelection[] = [], used = new Set<HTMLElement>();
+      const selected: PaneSelection[] = [], used = new Set<HTMLElement>(), nextActive = new Set<Element>();
       const editors = [...doc.querySelectorAll(editorSelector)].filter(visible).filter(node => !node.closest('[data-task-lens-host]'));
       for (const editor of editors.slice(0, 16)) {
         let region: HTMLElement | null = editor.parentElement;
@@ -34,16 +34,16 @@ export function createDomAdapter(doc: Document) {
           if (values.length) break;
         }
         if (!region || region === doc.body || !values.length || used.has(region)) continue;
-        // Insert outside the editor/form when possible, but only within this proven single-editor region.
         const shell = editor.closest<HTMLElement>('[data-composer-root],[class*="_ComposerLayoutRoot_"],form');
         const anchor = shell && region.contains(shell) ? shell : region;
-        if (anchor === doc.body || anchor === doc.documentElement || anchor.contains(editor) && anchor.matches('[contenteditable],textarea')) continue;
+        if (anchor === doc.body || anchor === doc.documentElement || anchor.matches('[contenteditable],textarea')) continue;
         const threadId = uniqueThread(values), previous = identities.get(editor);
         const entry = previous ?? { paneId: `pane-${++nextPane}`, generation: 0, threadId, anchor };
-        if (previous && (previous.threadId !== threadId || previous.anchor !== anchor)) entry.generation++;
-        entry.threadId = threadId; entry.anchor = anchor; identities.set(editor, entry); used.add(region);
+        if (previous && (!active.has(editor) || previous.threadId !== threadId || previous.anchor !== anchor)) entry.generation++;
+        entry.threadId = threadId; entry.anchor = anchor; identities.set(editor, entry); used.add(region); nextActive.add(editor);
         selected.push({ ...entry, editor });
       }
+      active = nextActive;
       return selected;
     },
   };
