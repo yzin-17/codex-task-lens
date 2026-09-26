@@ -1,6 +1,6 @@
 {
   "name": "codex-task-lens",
-  "version": "0.1.0-alpha.2",
+  "version": "0.1.0-alpha.3",
   "description": "Local, read-only task progress for Codex Desktop",
   "author": "yzin-17",
   "repository": { "type": "git", "url": "https://github.com/yzin-17/codex-task-lens.git" },

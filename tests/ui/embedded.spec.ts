@@ -639,3 +639,32 @@ test('Escape inside the section picker leaves the parent popover pinned', async 
     await expect(f.page.locator('.lens-embedded-shell')).toBeVisible();
   } finally { await f.close(); }
 });
+
+for (const closeBy of ['button', 'trigger', 'escape', 'native', 'outside', 'rapid'] as const) {
+  test(`closing via ${closeBy} forgets the floating position and reanchors on reopen`, async () => {
+    const f = await fixture(); try {
+      await f.page.setViewportSize({ width: 1200, height: 900 });
+      await f.page.locator('.pane').evaluate(node => { (node as HTMLElement).style.width = '900px'; (node as HTMLElement).style.height = '780px'; });
+      await expand(f.page);
+      const popup = f.page.locator('.lens-embedded-shell'), entry = f.page.locator('.lens-trigger');
+      await expect(popup).toBeVisible();
+      await expect.poll(async () => (await popup.boundingBox())?.width).toBe(460);
+      const anchored = (await popup.boundingBox())!;
+      if (closeBy !== 'outside') await f.page.getByLabel('固定浮窗', { exact: true }).click();
+      await f.page.getByLabel('移动进度浮窗', { exact: true }).focus();
+      await f.page.keyboard.press('Shift+ArrowRight'); await f.page.keyboard.press('Shift+ArrowRight');
+      await expect.poll(async () => Math.abs((await popup.boundingBox())!.x - anchored.x)).toBeGreaterThan(50);
+      if (closeBy === 'button') await f.page.getByLabel('关闭任务清单', { exact: true }).click();
+      else if (closeBy === 'trigger') await entry.click();
+      else if (closeBy === 'escape') await f.page.keyboard.press('Escape');
+      else if (closeBy === 'outside') await f.page.getByLabel('输入', { exact: true }).click();
+      else await popup.evaluate(node => { (node as HTMLElement).hidePopover(); });
+      if (closeBy !== 'rapid') await expect(popup).not.toBeVisible();
+      await entry.click();
+      await expect(f.page.getByLabel('固定浮窗', { exact: true })).toHaveAttribute('aria-pressed', 'false');
+      await expect.poll(async () => Math.abs((await popup.boundingBox())!.x - anchored.x)).toBeLessThan(2);
+      await expect.poll(async () => Math.abs((await popup.boundingBox())!.y - anchored.y)).toBeLessThan(2);
+      await expect(popup).not.toHaveAttribute('data-dragging', 'true');
+    } finally { await f.close(); }
+  });
+}

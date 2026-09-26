@@ -16,3 +16,11 @@
 最终发行提交 `b74b5820353975eaf43cef66ef54d86119f10a35` 的 [发布运行 36268605842](https://github.com/yzin-17/codex-task-lens/actions/runs/36268605842) 再次通过源码、三个原生平台打包与运行、同提交报告检查、校验和和发布。已核对 [v0.1.0-alpha.2](https://github.com/yzin-17/codex-task-lens/releases/tag/v0.1.0-alpha.2)，Release ID 397381428，发布时间 2026-09-26T20:16:21Z；target_commitish 与发行提交一致，六个可执行发行包均有非零大小及 GitHub SHA256 digest，三个 JSON 报告与校验文件齐全。当前台账补记不改变已发布二进制，也不覆盖 Release。
 
 用户 Mac 没有被本轮重新部署，远程写入受阻后实现与测试均在仓库／CI 进行。Mac 临时签名未公证，Windows 未签名；Windows 真实 Codex 内嵌与原一期 T02／I2／R1 仍不由本轮自动完成。详见 [验证](../validation/desktop-release-2026-09-27.md)。
+
+## main 后续修订（2026-09-27）
+
+PR #3 / #4 已按用户要求合并，此后直接在 main 实施。桌面包工作流跟随 main 检查/构建，只有新版本标签发布，不再依赖功能分支提交标记。
+
+- [ ] P6：桌面控制台提供「选择会话目录／停用扫描」，接通既有 `sessionRoot` / `allowSessionRead`，测试取消不启用、重启恢复、停用清理及范围隔离。本轮控件/运行时接线写入被工具安全检查拦截，未应用，临时未接线文件已移除。
+
+底层 SessionRecords 和 Task Lens CLI 已支持本地会话路径线索；缺口是桌面入口与参数传递，不是 CLI 或 CDP 的能力限制。不开启此功能仍可扫描已授权项目和手动添加文件；不自动扩展授权，不默认读取真实会话数据。

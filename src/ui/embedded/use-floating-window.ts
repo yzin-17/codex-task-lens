@@ -10,10 +10,27 @@ export function useFloatingWindow({ popup, trigger, open, bounds }: Options) {
     if (drag?.target.hasPointerCapture(drag.id)) drag.target.releasePointerCapture(drag.id);
     popup.current?.removeAttribute('data-dragging');
   };
+  // Reset synchronously on every native close; toggle events can coalesce during a rapid reopen.
+  useLayoutEffect(() => {
+    const node = popup.current; if (!node) return;
+    let frame = 0;
+    const before = (event: Event) => {
+      cancelAnimationFrame(frame);
+      if ((event as ToggleEvent).newState === 'closed') {
+        finish(); position.current = null;
+        for (const property of ['left', 'top', 'width', 'max-height']) node.style.removeProperty(property);
+      } else {
+        frame = requestAnimationFrame(() => { if (node.matches(':popover-open')) placeRef.current(); });
+      }
+    };
+    node.addEventListener('beforetoggle', before);
+    return () => { cancelAnimationFrame(frame); node.removeEventListener('beforetoggle', before); };
+  }, []);
   useLayoutEffect(() => {
     const node = popup.current, button = trigger.current;
     if (!open || !node || !button) return;
     const place = (preferred?: Point) => {
+      if (!node.matches(':popover-open')) return;
       const area = bounds(), anchor = button.getBoundingClientRect();
       const aboveSpace = anchor.top - area.top - 16;
       const belowSpace = area.top + area.height - anchor.bottom - 16;
