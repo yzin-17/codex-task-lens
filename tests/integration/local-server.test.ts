@@ -1,5 +1,6 @@
 import { beforeEach,afterEach,describe,expect,it } from 'vitest';
 import { mkdtemp,writeFile,rm,readFile } from 'node:fs/promises';import path from 'node:path';import os from 'node:os';import { randomUUID } from 'node:crypto';
+import { request as httpRequest } from 'node:http';
 import { BindingStore } from '../../src/store/binding-store.js';import { LensService } from '../../src/host/lens-service.js';import { startLocalServer } from '../../src/host/local-server/server.js';import { DOCUMENT_SCOPE } from '../../src/contracts/index.js';
 let root:string,store:BindingStore,service:LensService,server:Awaited<ReturnType<typeof startLocalServer>>;const opened:string[]=[];
 const monitor={kind:'standalone',id:'local'} as const;
@@ -12,7 +13,11 @@ describe('protected loopback transport',()=>{
   it('requires the runtime token and exact Origin/Host',async()=>{
     expect((await rpc(request('getSnapshot'),{authorization:''})).status).toBe(401);
     expect((await rpc(request('getSnapshot'),{origin:'https://evil.invalid'})).status).toBe(403);
-    expect((await rpc(request('getSnapshot'),{host:'evil.invalid'})).status).toBe(403);
+    // Fetch normalizes Host; send the actual forged header with the HTTP client.
+    const forgedStatus=await new Promise<number|undefined>((resolve,reject)=>{
+      const req=httpRequest(server.origin+'/api/rpc',{method:'POST',headers:{host:'evil.invalid','content-type':'application/json',origin:server.origin,authorization:`Bearer ${server.token}`}},res=>{res.resume();res.on('end',()=>resolve(res.statusCode));});
+      req.on('error',reject);req.end(JSON.stringify(request('getSnapshot')));
+    });expect(forgedStatus).toBe(403);
     const response=await rpc(request('getSnapshot'));expect(response.status).toBe(200);expect(response.headers.get('access-control-allow-origin')).toBeNull();
   });
   it('rejects unknown fields, commands, oversized requests and absent consent',async()=>{
