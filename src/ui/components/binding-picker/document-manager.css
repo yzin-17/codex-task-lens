@@ -12,8 +12,12 @@
 .lens-selected-heading strong{font-size:12px;white-space:nowrap}.lens-selected-heading>.lens-text-button{margin-left:auto}
 .lens-draft-state{color:var(--lens-muted,#777);font-size:10px;min-width:0}
 .lens-selected-chips{display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin-top:8px;min-width:0}
-.lens-selected-chips button{font-size:11px;padding:2px 7px;max-width:40%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:var(--lens-soft,#f5f6f7);border-color:transparent}
-.lens-selected-chips button[data-pending=true]{border-color:var(--lens-border,#ddd)}
+.lens-selected-chips>button{font-size:11px;padding:2px 7px;max-width:40%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:var(--lens-soft,#f5f6f7);border-color:transparent}
+.lens-selected-chip{display:inline-flex;align-items:center;min-width:0;max-width:40%;padding-right:2px;border:1px solid transparent;border-radius:7px;background:var(--lens-soft,#f5f6f7)}
+.lens-selected-chip[data-pending=true]{border-color:var(--lens-border,#ddd)}
+.lens-selected-chip .lens-chip-name{flex:1 1 auto;min-width:0;max-width:none;border:0;background:transparent;font-size:11px;padding:2px 5px 2px 7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lens-selected-chip .lens-chip-remove{display:inline-flex;align-items:center;justify-content:center;flex:none;width:22px;height:22px;padding:4px;border:0;border-radius:5px;background:transparent;color:var(--lens-muted,#777)}
+.lens-selected-chip .lens-chip-remove:hover:not(:disabled){background:var(--lens-border,#e7e8eb);color:var(--lens-text,#303236)}
 .lens-selected-chips .lens-error-chip{color:var(--lens-warn,#a04e12);max-width:none;margin-left:auto}
 .lens-manager-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;overflow-anchor:none;padding:12px 18px 16px;scrollbar-gutter:stable}
 .lens-section-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}.lens-section-heading h3{font-size:12px;font-weight:650}

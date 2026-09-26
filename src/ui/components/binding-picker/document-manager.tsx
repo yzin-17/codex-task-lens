@@ -12,7 +12,16 @@ export function DocumentManager({ api, view, initialGrantId, onBound, onCancel }
   const [page, setPage] = useState<'add' | 'manage'>('add');
   const scroller = useRef<HTMLDivElement>(null), positions = useRef({ add: 0, manage: 0 });
   const targetRow = useRef<string | null>(null), rowElements = useRef(new Map<string, HTMLLIElement>()), pathInput = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+  const summary = useRef<HTMLElement>(null), removedChipIndex = useRef<number | null>(null);
   const names = documentLabels(rows.map(row => row.path));
+  useLayoutEffect(() => {
+    const index = removedChipIndex.current;
+    if (index === null) return;
+    removedChipIndex.current = null;
+    const buttons = summary.current?.querySelectorAll<HTMLButtonElement>('.lens-chip-remove');
+    const next = buttons?.[Math.min(index, buttons.length - 1)] ?? summary.current?.querySelector<HTMLButtonElement>('.lens-selected-heading button');
+    next?.focus({ preventScroll: true });
+  }, [rows]);
   function navigate(next: 'add' | 'manage', key?: string) {
     positions.current[page] = scroller.current?.scrollTop ?? 0; targetRow.current = key ?? null; setPage(next);
     if (next === page && key) reveal(key);
@@ -28,11 +37,16 @@ export function DocumentManager({ api, view, initialGrantId, onBound, onCancel }
   const changes = `新增 ${draft.added} 份，移除 ${draft.removed} 份${draft.scopeChanged ? `，范围更改 ${draft.scopeChanged} 份` : ''}`;
   const locked = busy || saving;
   return <section className="lens-document-manager" aria-label="选择 Task 文档" data-page={page}>
-    <header className="lens-selected-summary" aria-label="已选摘要">
+    <header ref={summary} className="lens-selected-summary" aria-label="已选摘要">
       <div className="lens-selected-heading"><strong>已选 {rows.length} 份</strong><span className="lens-draft-state">{draft.dirty ? '有未确认更改' : draft.hasBinding ? '已绑定' : '尚未添加'}</span>
         <button type="button" className="lens-text-button" aria-label={page === 'add' ? '管理已选文档' : '返回添加文档'} onClick={() => navigate(page === 'add' ? 'manage' : 'add')}>{page === 'add' ? '管理 ›' : '‹ 返回添加'}</button>
       </div>
-      <div className="lens-selected-chips">{rows.slice(0, 2).map(row => <button type="button" key={row.key} title={row.path} aria-label={`查看已选 ${names.get(row.path)}`} data-pending={!row.original || !sameScope(rowScope(row), row.original.scope)} onClick={() => navigate('manage', row.key)}>{names.get(row.path)}</button>)}
+      <div className="lens-selected-chips">{rows.slice(0, 2).map((row, index) => <span key={row.key} className="lens-selected-chip" data-pending={!row.original || !sameScope(rowScope(row), row.original.scope)}>
+        <button type="button" className="lens-chip-name" title={row.path} aria-label={`查看已选 ${names.get(row.path)}`} onClick={() => navigate('manage', row.key)}>{names.get(row.path)}</button>
+        <button type="button" className="lens-chip-remove" aria-label={`移除已选 ${names.get(row.path)}`} title="移出待确认清单，不删除文件" disabled={locked} onClick={() => { if (locked) return; removedChipIndex.current = index; draft.remove(row.key); }}>
+          <svg aria-hidden="true" focusable="false" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="m4 4 8 8m0-8-8 8" /></svg>
+        </button>
+      </span>)}
         {rows.length > 2 && <button type="button" aria-label={`查看其余 ${rows.length - 2} 份文档`} onClick={() => navigate('manage', rows[2]!.key)}>+{rows.length - 2}</button>}
         {!rows.length && <span className="lens-muted">添加后在这里查看，不影响已保存进度</span>}
         {!!draft.errors && <button type="button" className="lens-error-chip" onClick={() => navigate('manage', rows.find(row => !!row.error)!.key)}>{draft.errors} 份需处理</button>}

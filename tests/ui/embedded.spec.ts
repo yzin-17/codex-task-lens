@@ -532,3 +532,61 @@ test('directory entry reads only after search click and does not bind discovered
     await expect(f.page.locator('.lens-trigger')).toHaveText('进度'); expect(f.service.listMonitors()).toEqual([]);
   } finally { await f.close(); }
 });
+
+test('selected chips remove saved bindings only on confirmation and never open management', async () => {
+  const f = await fixture(true); try {
+    const names = ['a-long-document-name-for-chip-truncation.md', 'b.md', 'c.md'];
+    const files = names.map(name => path.join(f.workspace, 'docs/tasks', name));
+    for (const file of files) await writeFile(file, '- [ ] pending\n- [x] done\n');
+    await expand(f.page); await f.page.getByRole('button', { name: '绑定 Task 文档', exact: true }).click();
+    await f.page.getByLabel('本地绝对路径', { exact: true }).fill(files.join('\n'));
+    await f.page.getByRole('button', { name: '预览文件', exact: true }).click();
+    await expect(f.page.getByLabel('已选摘要', { exact: true })).toContainText('已选 3 份');
+    await f.page.getByRole('button', { name: '确认绑定', exact: true }).click();
+    await expect(f.page.locator('.lens-trigger')).toHaveText('进度 3/6');
+    await f.page.getByRole('button', { name: '管理文档', exact: true }).click();
+    const summary = f.page.getByLabel('已选摘要', { exact: true });
+    const remove = summary.getByRole('button', { name: `移除已选 ${names[0]}`, exact: true });
+    await expect(remove).toBeVisible(); await expect(summary.locator('button button')).toHaveCount(0);
+    await remove.focus(); await remove.press('Enter');
+    await expect(f.page.locator('.lens-document-manager')).toHaveAttribute('data-page', 'add');
+    await expect(summary).toContainText('已选 2 份'); await expect(summary).toContainText('c.md');
+    await expect(summary.getByRole('button', { name: '移除已选 b.md', exact: true })).toBeFocused();
+    await expect(f.page.locator('.lens-change-summary')).toContainText('移除 1 份');
+    await expect(f.page.locator('.lens-trigger')).toHaveText('进度 3/6');
+    await f.page.getByRole('button', { name: '取消', exact: true }).click();
+    await f.page.getByRole('button', { name: '管理文档', exact: true }).click();
+    await expect(summary).toContainText('已选 3 份'); await remove.click();
+    await f.page.getByRole('button', { name: '确认更改', exact: true }).click();
+    await expect(f.page.locator('.lens-trigger')).toHaveText('进度 2/4');
+    for (const file of files) expect(await readFile(file, 'utf8')).toBe('- [ ] pending\n- [x] done\n');
+  } finally { await f.close(); }
+});
+
+test('chip remove remains visible for long names and preserves final-binding confirmation', async () => {
+  const f = await fixture(); try {
+    await f.page.setViewportSize({ width: 520, height: 740 });
+    await f.page.locator('.pane').evaluate(node => { (node as HTMLElement).style.width = '390px'; });
+    const name = 'very-long-document-name-that-must-not-hide-the-remove-icon.md', file = path.join(f.root, name);
+    await writeFile(file, '- [x] done\n'); await expand(f.page); await bind(f.page, file);
+    await expect(f.page.locator('.lens-trigger')).toHaveText('进度 1/1');
+    await f.page.getByRole('button', { name: '管理文档', exact: true }).click();
+    const chip = f.page.locator('.lens-selected-chip'), remove = chip.getByRole('button', { name: `移除已选 ${name}`, exact: true });
+    for (const dark of [true, false]) {
+      await f.page.evaluate(value => document.documentElement.classList.toggle('dark', value), dark);
+      await expect(f.page.locator('[data-task-lens-host]')).toHaveAttribute('data-theme', dark ? 'dark' : 'light');
+      await expect(remove).toBeVisible();
+      const outer = (await chip.boundingBox())!, icon = (await remove.boundingBox())!;
+      expect(icon.width).toBeGreaterThanOrEqual(22); expect(icon.x + icon.width).toBeLessThanOrEqual(outer.x + outer.width);
+      expect(await f.page.locator('.lens-selected-summary').evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true);
+    }
+    await remove.click(); await expect(f.page.getByLabel('已选摘要', { exact: true })).toContainText('已选 0 份');
+    await expect(f.page.getByRole('button', { name: '管理已选文档', exact: true })).toBeFocused();
+    await expect(f.page.getByRole('button', { name: '确认解除', exact: true })).toBeDisabled();
+    await expect(f.page.locator('.lens-trigger')).toHaveText('进度 1/1');
+    await f.page.getByRole('checkbox', { name: '确认解除此对话的全部文档绑定' }).check();
+    await f.page.getByRole('button', { name: '确认解除', exact: true }).click();
+    await expect(f.page.locator('.lens-trigger')).toHaveText('进度');
+    expect(await readFile(file, 'utf8')).toBe('- [x] done\n');
+  } finally { await f.close(); }
+});
