@@ -31,3 +31,10 @@ Codex Desktop `26.924.22138`，CDP `127.0.0.1:9341`。
 - App 原生入口进程计数：第一次完成后 `0`，第二次完成后仍为 `0`，LaunchServices 可再次执行 App。
 - 最终页面检查：`targets=1`、`host=true`、工具栏触发器为“进度”。
 - 验证过程中未修改业务 Task 文档或用户绑定。
+
+## Release
+
+- `v0.1.0-alpha.8` tag workflow `36313949037` 全部成功，Release ID `397611505`。
+- macOS ZIP `625,939` bytes；Windows ZIP `302,241` bytes。
+- macOS SHA-256 `f3c54b6bd567b5847b83499cca40caeb46bdb0f7edbde75a86ff876f41f7a789`；Windows SHA-256 `13d61b4c39e1663e8c8414d165901e7fec4facdf9dd88fc1380bbf4dcdca264a`。
+- 用户 Mac 已切换到本地 `alpha.8` App；日志显示 `CDP 已连接`，随后页面验证 `host=true`、触发器为“进度”。
