@@ -22,14 +22,14 @@ export class LensService {
   private ensureOpen(): void { if (this.closed) throw new LensError('error', 'Task Lens 已停止'); }
   authorize(input: string, kind: Grant['kind']): Promise<Grant> { this.ensureOpen(); return this.store.authorize(input, kind); }
   listMonitors() { this.ensureOpen(); return this.store.list(); }
-  async candidates(ref: MonitorRef, grantId: string, patterns?: string[], signal?: AbortSignal): Promise<CandidateResult> {
+  async candidates(ref: MonitorRef, grantId?: string, patterns?: string[], signal?: AbortSignal): Promise<CandidateResult> {
     this.ensureOpen(); let hints: SessionHints | undefined;
     if (this.options.hints) {
       let timer: NodeJS.Timeout | undefined;
       try { hints = await Promise.race([this.options.hints(ref), new Promise<SessionHints>(resolve => { timer = setTimeout(() => resolve({ status: 'unavailable', paths: [], diagnostics: [] }), 750); })]); }
       catch { hints = { status: 'unavailable', paths: [], diagnostics: [] }; } finally { clearTimeout(timer); }
     }
-    return discoverCandidates({ grant: this.store.grant(grantId), patterns, hints, signal });
+    return discoverCandidates({ ...(grantId ? { grant: this.store.grant(grantId) } : {}), patterns, hints, signal });
   }
   async preview(ref: MonitorRef, generation: number, grantId: string, input: string, scope: TaskScope): Promise<Preview> {
     this.ensureOpen(); const now = this.options.now?.() ?? Date.now();

@@ -10,6 +10,15 @@ describe('explainable candidate discovery',()=>{
     const result=await discoverCandidates({grant,hints:{status:'ready',paths:[{path:'docs/tasks/a.md',baseDirectory:root,source:'file read'}],diagnostics:[]}});
     expect(result.candidates).toHaveLength(2);expect(result.candidates[0]?.sources).toEqual(['会话线索：file read','目录扫描']);
   });
+  it('lists exact task-document session hints without reading or authorizing their parent directory',async()=>{
+    const missing=path.join(root,'docs/tasks/from-session.md');await writeFile(missing,'not parsed before consent');
+    const result=await discoverCandidates({hints:{status:'ready',paths:[
+      {path:missing,source:'current conversation'},
+      {path:path.join(root,'docs/specs/not-a-task.md'),source:'current conversation'}
+    ],diagnostics:[]}});
+    expect(result.candidates).toEqual([expect.objectContaining({path:missing,title:'from-session.md',requiresAuthorization:true,sources:['会话线索：current conversation']})]);
+    expect(result.candidates[0]?.total).toBeUndefined();expect(result.candidates[0]?.completed).toBeUndefined();
+  });
   it('works without a log adapter and supports configured globs',async()=>{
     const grant=await createGrant(root,'directory');
     const result=await discoverCandidates({grant,patterns:['notes/**/*.md'],hints:{status:'unavailable',paths:[],diagnostics:[]}});

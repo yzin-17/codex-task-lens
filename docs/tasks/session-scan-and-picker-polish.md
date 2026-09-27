@@ -13,3 +13,5 @@
 - [x] G4：默认启用／持久停用与明显授权按钮已完成：实现 CI `36300566499`、Desktop packages `36300566477` 全通过；用户 Mac `26.924.22138` 已以 `~/.codex` 会话扫描重载并验证 CTA；`v0.1.0-alpha.5` tag workflow `36300925631` 全通过，Release `397541033` 的 6 个桌面包、3 个 smoke JSON 与 `SHA256SUMS` 共 10 个附件已核对。
 - [x] S8：适配当前 Codex `custom_tool_call: exec` rollout 包装，解析其中 `tools.exec_command({cmd: ...})` 的 Markdown 字面路径和包装内 `apply_patch` 文件路径；不执行命令、不展开变量／glob。
 - [x] G5：当前真实对话 `01a0d8d3…` 已从 rollout 提取目标 `docs/tasks/2026-09-25-multi-source-adjustment-aware-backtest.md`；在显式授权 thesis-ledger 项目目录后候选为 `63/119`，来源含“会话工具命令／会话文件操作／目录扫描”。
+- [x] S9：会话 Task 候选与目录授权解耦：未授权目录时仅对真实存在的 Task 路径做元数据检查并显示“待授权”；点击“添加”创建该文件的单文件授权并预览，不授权父目录。
+- [x] G6：用户 Mac Codex `26.924.22138` 真机验证：无目录授权时仅列出当前对话真实 Task 候选，模板路径被过滤；点击“添加”后进入“新增 1 份”待确认状态，随后取消，未写入绑定。

@@ -25,13 +25,12 @@ export function useDocumentDraft(api: Pick<LensClient, 'call'>, view: ViewState,
     finally { occupied.current = false; if (live.current) setBusy(false); }
   }
   async function scan(id = grant) {
-    if (!id) return;
     scanController.current?.abort(); const abort = new AbortController(); scanController.current = abort; setScanning(true); setScanError('');
-    try { const result = await api.call('listCandidates', { grantId: id }, abort.signal); if (live.current && !abort.signal.aborted) setCandidates(result); }
+    try { const result = await api.call('listCandidates', { ...(id ? { grantId: id } : {}) }, abort.signal); if (live.current && !abort.signal.aborted) setCandidates(result); }
     catch (failure) { if (live.current && !abort.signal.aborted) setScanError(messageOf(failure)); }
     finally { if (live.current && !abort.signal.aborted) setScanning(false); }
   }
-  useEffect(() => { if (initialGrantId) void scan(initialGrantId); }, [api, initialGrantId]);
+  useEffect(() => { void scan(initialGrantId); }, [api, initialGrantId]);
   async function add(paths: string[], grantId?: string) {
     const unique = [...new Set(paths.map(value => value.trim()).filter(Boolean))].filter(path => !latest.current.some(row => row.path === path));
     if (!unique.length) return;

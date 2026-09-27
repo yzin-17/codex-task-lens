@@ -8,9 +8,11 @@ import { LensService } from '../../src/host/lens-service.js';
 import { CdpSession } from '../../src/adapters/codex/cdp/session.js';
 import { CdpBridge } from '../../src/host/cdp-bridge/bridge.js';
 const a = '11111111-1111-4111-8111-111111111111', b = '22222222-2222-4222-8222-222222222222';
-async function fixture(authorizeWorkspace = false) {
+async function fixture(authorizeWorkspace = false, sessionCandidate = false) {
   const root = await mkdtemp(path.join(tmpdir(), 'lens-real-cdp-')), workspace = path.join(root, 'project');
   await mkdir(path.join(workspace, 'docs/tasks'), { recursive: true });
+  const sessionFile = sessionCandidate ? path.join(workspace, 'docs/tasks/from-session.md') : undefined;
+  if (sessionFile) await writeFile(sessionFile, '- [ ] pending\n- [x] done\n');
   const html = await readFile('tests/fixtures/codex/contract-baseline/panes.html', 'utf8');
   const server = createServer((_req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.end(html); });
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -24,12 +26,12 @@ async function fixture(authorizeWorkspace = false) {
   // Test-only controlled Chromium endpoint; production uses the macOS signed-app verifier.
   const connect = () => CdpSession.connect(target.webSocketDebuggerUrl, async () => { expect(new URL(target.webSocketDebuggerUrl).hostname).toBe('127.0.0.1'); });
   let session = await connect();
-  const store = await BindingStore.open(path.join(root, 'state')), service = new LensService(store);
+  const store = await BindingStore.open(path.join(root, 'state')), service = new LensService(store, sessionFile ? { hints: async () => ({ status: 'ready', paths: [{ path: sessionFile, source: 'current conversation' }], diagnostics: [] }) } : {});
   const initialGrantId = authorizeWorkspace ? (await service.authorize(workspace, 'directory')).id : undefined;
   const options = { sourceId: 'fixture', bundle: await readFile('dist/inject/task-lens.js', 'utf8'), styles: await readFile('dist/inject/task-lens.css', 'utf8'), refreshMs: 40, initialGrantId };
   let bridge = await CdpBridge.attach(session, service, options);
   return {
-    root, workspace, page, service, bridge: () => bridge,
+    root, workspace, sessionFile, page, service, bridge: () => bridge,
     reattach: async () => { await bridge.close(); bridge = await CdpBridge.attach(session, service, options); },
     reconnect: async () => { session.close(); await expect.poll(() => bridge.isClosed).toBe(true); session = await connect(); bridge = await CdpBridge.attach(session, service, options); },
     close: async () => { await bridge.close(); session.close(); await context.close(); await service.close(); await store.close(); await new Promise<void>(resolve => server.close(() => resolve())); await rm(root, { recursive: true, force: true }); },
@@ -87,6 +89,22 @@ test('reconnect disposes an orphaned renderer before restoring the existing bind
     await expect(f.page.getByText('retained task', { exact: true })).toBeVisible();
     await expect(f.page.getByLabel('输入', { exact: true })).toHaveValue('preserve me'); expect(f.service.resources().subscribers).toBe(1);
     await f.bridge().close(); expect(f.service.resources().subscribers).toBe(0);
+  } finally { await f.close(); }
+});
+test('session Task paths appear before directory authorization and selecting one authorizes only that file', async () => {
+  const f = await fixture(false, true); try {
+    const grants: { input: string; kind: string }[] = [], authorize = f.service.authorize.bind(f.service);
+    f.service.authorize = async (input, kind) => { grants.push({ input, kind }); return authorize(input, kind); };
+    await expand(f.page); await f.page.getByRole('button', { name: '绑定 Task 文档', exact: true }).click();
+    const candidate = f.page.locator('.lens-candidate').filter({ hasText: 'from-session.md' });
+    await expect(candidate).toBeVisible(); await expect(candidate).toContainText('待授权');
+    await expect(f.page.getByText('还没有授权项目目录', { exact: true })).toHaveCount(0);
+    expect(grants).toEqual([]);
+    await candidate.getByRole('button', { name: /添加 from-session\.md 来源/ }).click();
+    await expect(f.page.getByLabel('已选摘要', { exact: true })).toContainText('已选 1 份');
+    expect(grants).toEqual([{ input: f.sessionFile!, kind: 'file' }]);
+    await f.page.getByRole('button', { name: '确认绑定', exact: true }).click();
+    await expect(f.page.locator('.lens-trigger')).toHaveText('进度 1/2');
   } finally { await f.close(); }
 });
 test('automatically discovers within an explicitly authorized workspace and supports zero-height identity markers', async () => {

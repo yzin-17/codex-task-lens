@@ -55,17 +55,17 @@ export function DocumentManager({ api, view, initialGrantId, onBound, onCancel }
     <div className="lens-manager-scroll" ref={scroller}>
       {page === 'add' && <>
         <section className="lens-manager-candidates" aria-label="候选文档">
-          <div className="lens-section-heading"><h3>可添加文档</h3><button type="button" className="lens-text-button" disabled={!draft.grant || draft.scanning || locked} onClick={() => { void draft.scan(); }}>{draft.scanning ? '扫描中…' : '重新扫描'}</button></div>
-          <p className="lens-muted">优先显示当前对话线索，仅扫描已授权范围。</p>
-          {!draft.grant && <div className="lens-candidate-empty"><strong>还没有授权项目目录</strong><span>授权后可自动扫描当前项目中的 Task 文档；也可以继续手动添加文件。</span><button type="button" className="lens-authorize-workspace" onClick={focusDirectory} disabled={locked} title="切换到目录模式并填写项目路径">授权项目目录 <span aria-hidden="true">↓</span></button></div>}
+          <div className="lens-section-heading"><h3>可添加文档</h3><button type="button" className="lens-text-button" disabled={draft.scanning || locked} onClick={() => { void draft.scan(); }}>{draft.scanning ? '扫描中…' : '重新扫描'}</button></div>
+          <p className="lens-muted">当前对话里明确出现的 Task 文档会直接列出；点击“添加”即授权读取这一份文件。</p>
+          {!draft.grant && draft.candidates && !draft.candidates.candidates.length && !draft.scanning && <div className="lens-candidate-empty"><strong>当前对话还没有找到 Task 文档</strong><span>可以授权项目目录扫描更多文档，也可以继续手动添加文件。</span><button type="button" className="lens-authorize-workspace" onClick={focusDirectory} disabled={locked} title="切换到目录模式并填写项目路径">授权项目目录 <span aria-hidden="true">↓</span></button></div>}
           {draft.scanError && <p role="alert" className="lens-manager-error">扫描不可用：{draft.scanError}。仍可手动添加。</p>}
           {draft.candidates?.incomplete && <p className="lens-manager-error">扫描结果不完整，请缩小范围。</p>}
           {draft.candidates?.diagnostics.map((text, i) => <p key={i} className="lens-muted">{text}</p>)}
-          {draft.candidates && !draft.candidates.candidates.length && !draft.scanning && <p className="lens-muted">未找到可添加清单，可在下方输入具体路径。</p>}
+          {draft.grant && draft.candidates && !draft.candidates.candidates.length && !draft.scanning && <p className="lens-muted">授权范围内未找到可添加清单，可在下方输入具体路径。</p>}
           {draft.candidates?.candidates.map(candidate => {
             const selected = rows.some(row => row.path === candidate.path);
             return <article className="lens-candidate" key={candidate.id} data-selected={selected}>
-              <div><strong title={candidate.title}>{candidate.path.split('/').at(-1)}</strong><span>{candidate.completed}/{candidate.total}</span><button type="button" disabled={selected || locked} aria-label={`${selected ? '已选' : '添加'} ${candidate.title} 来源：${candidate.sources.join('、')}`} onClick={() => { if (draft.grant) void draft.add([candidate.path], draft.grant); }}>{selected ? '✓ 已选' : '添加'}</button></div>
+              <div><strong title={candidate.title}>{candidate.path.split('/').at(-1)}</strong><span>{candidate.requiresAuthorization ? '待授权' : `${candidate.completed}/${candidate.total}`}</span><button type="button" disabled={selected || locked} aria-label={`${selected ? '已选' : '添加'} ${candidate.title} 来源：${candidate.sources.join('、')}`} onClick={() => { void draft.add([candidate.path], candidate.requiresAuthorization ? undefined : draft.grant); }}>{selected ? '✓ 已选' : '添加'}</button></div>
               <code title={candidate.path}>{candidate.workspace && candidate.path.startsWith(candidate.workspace + '/') ? candidate.path.slice(candidate.workspace.length + 1) : candidate.path}</code><small>来源：{candidate.sources.join('、')}</small>
             </article>;
           })}

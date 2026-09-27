@@ -20,14 +20,14 @@ export type TaskSnapshot = DocumentSnapshot & { monitor: MonitorRef; bindingVers
 export type BoundDocument = { binding: Binding; snapshot: TaskSnapshot | null };
 export type ViewState = { documents?: BoundDocument[]; monitor: MonitorRef; generation: number; bindingVersion: number; binding: Binding | null; snapshot: TaskSnapshot | null; connection: 'standalone' | 'connected' | 'disconnected' | 'incompatible' | 'unknown_thread' };
 export type SessionHints = { status: 'ready' | 'unavailable' | 'unsupported'; cwd?: string; paths: { path: string; baseDirectory?: string; source: string }[]; diagnostics: string[] };
-export type Candidate = { id: string; path: string; workspace: string | null; sources: string[]; total: number; completed: number; title: string; diagnostics: string[] };
+export type Candidate = { id: string; path: string; workspace: string | null; sources: string[]; total?: number; completed?: number; title: string; diagnostics: string[]; requiresAuthorization?: boolean };
 export type CandidateResult = { candidates: Candidate[]; incomplete: boolean; checked: number; diagnostics: string[] };
 export type Preview = { id: string; grantId: string; path: string; scope: TaskScope; tasks: ParsedTasks; expiresAt: number };
 export type MonitorSummary = { bindings?: Binding[]; monitor: MonitorRef; bindingVersion: number; binding: Binding | null };
 export interface Params {
   authorize: { path: string; kind: 'file' | 'directory'; consent: true };
   listMonitors: Record<string, never>;
-  listCandidates: { grantId: string; patterns?: string[] };
+  listCandidates: { grantId?: string; patterns?: string[] };
   previewDocument: { grantId: string; path: string; scope: TaskScope };
   confirmBinding: { previewId: string; expectedBindingVersion: number };
   confirmBindings: { previewIds: string[]; keepBindingIds: string[]; expectedBindingVersion: number };
@@ -107,7 +107,7 @@ export function parseRequest(input: unknown): Request {
     case 'listCandidates': {
       const p = object(v.params, ['grantId', 'patterns']);
       if (p.patterns !== undefined && (!Array.isArray(p.patterns) || p.patterns.length > 16)) return fail();
-      return { ...base, operation, params: { grantId: text(p.grantId, 128), ...(Array.isArray(p.patterns) ? { patterns: p.patterns.map(x => text(x, 256)) } : {}) } };
+      return { ...base, operation, params: { ...(p.grantId === undefined ? {} : { grantId: text(p.grantId, 128) }), ...(Array.isArray(p.patterns) ? { patterns: p.patterns.map(x => text(x, 256)) } : {}) } };
     }
     case 'previewDocument': { const p = object(v.params, ['grantId', 'path', 'scope']); return { ...base, operation, params: { grantId: text(p.grantId, 128), path: text(p.path), scope: parseScope(p.scope) } }; }
     case 'confirmBinding': { const p = object(v.params, ['previewId', 'expectedBindingVersion']); return { ...base, operation, params: { previewId: text(p.previewId, 128), expectedBindingVersion: integer(p.expectedBindingVersion) } }; }
