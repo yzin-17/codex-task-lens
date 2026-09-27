@@ -5,13 +5,18 @@
 - [x] A3：新增跨平台 `launcher.mjs`，复用现有设置，默认会话扫描开启，并增加单实例锁与日志。
 - [x] A4：完成 macOS / Windows 轻量双击入口；A11 进一步取消安装复制流程，改为 ZIP 内直接运行。
 - [x] A5：轻量 staging / ZIP 构建与 smoke 已实现；本机 ZIP 约 240 KiB，staging 约 0.75 MiB。
-- [x] A6：默认 Release workflow 改为 Agent 包；Electron workflow 降为手动兼容构建，不再随 tag 发布。
+- [x] A6：默认 Release workflow 改为 Agent 包；后续 A12 进一步删除全部 Electron 兼容代码与 workflow。
 - [x] A7：修复单文件 bundle 中 `standalone-runtime` 误判直接入口的问题；smoke 明确拒绝重复启动独立模式。
 - [x] G1：CI `36307522717` 的 Ubuntu/macOS 回归全部通过；轻量 Agent workflow `36307522751` 的 macOS/Windows 安装 smoke、package 均通过，安装后的 launcher 不依赖仓库 `node_modules`。用户 Mac 另以实际轻量 launcher 连接 Codex `26.924.22138`，只启动一个 CLI runtime 并成功注入。
 - [x] G2：`v0.1.0-alpha.6` 已发布；tag workflow `36308068069` 全部通过。Release `397577408` 仅含轻量 Agent ZIP（`239,618` bytes）、macOS/Windows smoke JSON 与 `SHA256SUMS`，无 Electron 大包；ZIP SHA-256 `b86639923e5eb195565acedcc8c5440c889bddfe5716a67b9b491c4e3c9efeb2`。
-- [x] A8：移除 Node 24 专属限制；Agent bundle target 下调到 Node 22，并将支持范围明确为 Node 22.20+ / 24.x。
+- [x] A8：移除 Node 24 专属限制；Agent bundle target 下调到 Node 22，运行时约束改为 `>=22.20.0`，不设置 Node 上限。
 - [x] A9：默认会话目录优先读取绝对路径 `CODEX_HOME`，否则使用用户 Home 下 `.codex`；Windows 即通常的 `%USERPROFILE%\.codex`。
 - [x] A10：默认发行拆成 `-mac.zip` 与 `-windows.zip`，不再使用单一跨平台 `-agent.zip`。
 - [x] A11：去掉安装器与快捷方式创建流程；macOS ZIP 直接提供 `.app`，Windows ZIP 直接提供隐藏 `.vbs` 启动器。
 - [x] G3：实现提交 `4f4c595`：Agent workflow `36309267794` 的 Node 22.20 / 24 验证、macOS `.app`、Windows `.vbs` 直接启动 smoke 全部通过；主 CI `36309267790` 的 Ubuntu/macOS 回归通过。用户 Mac 另以解压后的 `.app` 直接连接 Codex `26.924.22138` / CDP 9341 成功。
 - [x] G4：`v0.1.0-alpha.7` 已发布；tag workflow `36309738200` 全部通过。Release `397586790` 含 macOS ZIP `238,469` bytes、Windows ZIP `235,519` bytes、两份 direct-launch smoke 与 `SHA256SUMS`；macOS SHA-256 `ae16e2d4a105dc90d2a2998d5fa8d2116d2e0979c90aa3d98b579ac9ad8386e7`，Windows SHA-256 `6d6ea206478ac375af939d8aba6cccbb4a658193071ec2683e927bf9aa7ff55d`。
+- [x] A12：彻底删除 Electron 控制台、electron-builder、tools/desktop、desktop tests、legacy workflow 与旧桌面发行文档；仓库只保留轻量 Agent。
+- [x] A13：macOS `.app` 改为一次性启动壳：后台 Agent 脱离后 App 立即退出；重复双击会给出“已在运行”提示并切回 Codex。Codex 已普通运行但无 CDP 时显示明确退出/重启说明。
+- [x] A14：新增 Task Lens 专用图标生成器，macOS 打包生成并嵌入 `AppIcon.icns`；Windows 包附同源 PNG 资源。
+- [ ] G5：Node >=22.20 约束、图标、双击生命周期、Electron 清理经完整 CI / macOS 真机验证。
+- [ ] G6：发布下一版并核对分平台 ZIP、direct-launch smoke、SHA256。

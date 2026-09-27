@@ -11,12 +11,14 @@ if (!target) throw new Error('Specify --mac or --windows on this platform');
 if ((target === 'mac' && process.platform !== 'darwin') || (target === 'windows' && process.platform !== 'win32')) throw new Error(`Build ${target} package on its native runner`);
 const name = `Codex-Task-Lens-${version}-${target}`, stage = path.join(release, name), archive = path.join(release, `${name}.zip`);
 await rm(stage, { recursive: true, force: true }); await rm(archive, { force: true }); await mkdir(stage, { recursive: true });
+run(process.execPath, ['scripts/generate-icons.mjs']);
 
 async function copyRuntime(destination) {
   await mkdir(destination, { recursive: true });
   await cp('dist/agent', path.join(destination, 'agent'), { recursive: true });
   await cp('packaging/agent/launcher.mjs', path.join(destination, 'launcher.mjs'));
   await cp('packaging/agent/README.txt', path.join(destination, 'README.txt'));
+  await cp('build/task-lens-icon.png', path.join(destination, 'task-lens-icon.png'));
 }
 
 function run(program, args, cwd) {
@@ -27,8 +29,17 @@ function run(program, args, cwd) {
 if (target === 'mac') {
   const app = path.join(stage, 'Codex Task Lens.app'), macOS = path.join(app, 'Contents/MacOS'), resources = path.join(app, 'Contents/Resources');
   await mkdir(macOS, { recursive: true }); await copyRuntime(resources);
-  const executable = path.join(macOS, 'Codex Task Lens');
-  await cp('packaging/agent/mac-entrypoint.sh', executable); await chmod(executable, 0o755);
+  const executable = path.join(macOS, 'Codex Task Lens'), launchScript = path.join(resources, 'launch.sh');
+  await cp('packaging/agent/mac-entrypoint.sh', launchScript); await chmod(launchScript, 0o755);
+  run('/usr/bin/clang', ['-fobjc-arc', '-mmacosx-version-min=11.0', '-arch', 'arm64', '-arch', 'x86_64', '-framework', 'Foundation', '-framework', 'AppKit', 'packaging/agent/mac-launcher.m', '-o', executable]);
+  const iconset = path.join(stage, 'AppIcon.iconset'), sourceIcon = path.resolve('build/task-lens-icon.png');
+  await mkdir(iconset, { recursive: true });
+  for (const size of [16, 32, 128, 256, 512]) {
+    run('/usr/bin/sips', ['-z', String(size), String(size), sourceIcon, '--out', path.join(iconset, `icon_${size}x${size}.png`)]);
+    run('/usr/bin/sips', ['-z', String(size * 2), String(size * 2), sourceIcon, '--out', path.join(iconset, `icon_${size}x${size}@2x.png`)]);
+  }
+  run('/usr/bin/iconutil', ['-c', 'icns', iconset, '-o', path.join(resources, 'AppIcon.icns')]);
+  await rm(iconset, { recursive: true, force: true });
   const plist = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
@@ -38,6 +49,7 @@ if (target === 'mac') {
 <key>CFBundleVersion</key><string>${version}</string>
 <key>CFBundleShortVersionString</key><string>${version}</string>
 <key>CFBundleExecutable</key><string>Codex Task Lens</string>
+<key>CFBundleIconFile</key><string>AppIcon</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>LSUIElement</key><true/>
 </dict></plist>\n`;

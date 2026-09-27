@@ -2,16 +2,16 @@
 
 ## 背景
 
-当前 GitHub Release 使用 Electron 自包含桌面包。Task Lens 业务代码不足 1 MiB，但 Electron/Chromium 使单个安装包达到约 107–148 MiB。Task Lens 的主要 UI 已通过 CDP 注入 Codex，因此默认发行不需要第二套 Chromium。
+早期 GitHub Release 使用 Electron 自包含桌面包。Task Lens 业务代码不足 1 MiB，但 Electron/Chromium 使单个安装包达到约 107–148 MiB。Task Lens 的主要 UI 已通过 CDP 注入 Codex，因此当前发行改为纯轻量 Agent，并已移除旧 Electron 代码。
 
 ## 目标
 
 1. 默认 Release 使用轻量 Agent，不包含 Electron、Chromium 或 Node runtime。
-2. 运行时支持 Node.js 22.20+ 与 24.x；当前没有 Node 24 专属运行时能力。最低版本由稳定的全局 WebSocket 与 `path.matchesGlob` 能力决定，并在 Node 22.20 CI 中验证。
+2. 运行时要求 Node.js >=22.20.0，不设置上限；当前没有 Node 24 专属运行时能力。最低版本由稳定的全局 WebSocket 与 `path.matchesGlob` 能力决定，并在 Node 22.20 CI 中验证。
 3. Agent 继续通过回环 CDP 注入 Codex；会话目录优先采用绝对路径 `CODEX_HOME`，否则使用用户 Home 下的 `.codex`，并复用现有绑定/设置目录。
 4. macOS 与 Windows 分别构建独立 ZIP；两者共用平台无关 Agent bundle，但直接启动入口不同。
 5. 解压即用：macOS ZIP 直接包含 `.app`，Windows ZIP 直接包含隐藏 `.vbs` 启动器，不再运行安装脚本或创建快捷方式。
-6. Electron 源码暂时保留为兼容实现，但不再由版本 tag 默认发布。
+6. 删除旧 Electron 源码、依赖、测试与 workflow；仓库只保留轻量 Agent 发行链路。
 
 ## 发行结构
 

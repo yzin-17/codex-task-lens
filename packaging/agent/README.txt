@@ -1,7 +1,7 @@
 Codex Task Lens · Lightweight Agent
 
 默认发行版不包含 Electron / Chromium / Node runtime。
-运行要求：Node.js 22.20+ 或 24.x，以及已安装的 Codex Desktop。
+运行要求：Node.js >=22.20.0，以及已安装的 Codex Desktop。
 
 macOS：解压后直接双击“Codex Task Lens.app”。
 Windows：解压后直接双击“Codex Task Lens.vbs”。

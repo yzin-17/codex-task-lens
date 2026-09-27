@@ -6,9 +6,8 @@
   "repository": { "type": "git", "url": "https://github.com/yzin-17/codex-task-lens.git" },
   "private": true,
   "type": "module",
-  "main": "desktop/main.cjs",
   "packageManager": "pnpm@10.28.2",
-  "engines": { "node": "^22.20.0 || ^24.0.0" },
+  "engines": { "node": ">=22.20.0" },
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
@@ -21,9 +20,6 @@
     "doctor": "node dist/node/cli/index.js --doctor",
     "test:mac": "node dist/node/cli/mac-probe.js",
     "test:mac:acceptance": "node dist/node/cli/mac-acceptance.js",
-    "build:desktop": "node scripts/package-desktop.mjs",
-    "test:desktop": "node --test tests/desktop/*.test.cjs",
-    "test:package": "node scripts/smoke-packaged.mjs",
     "build:agent": "pnpm build && node scripts/build-agent.mjs",
     "package:agent": "pnpm build:agent && node scripts/package-agent.mjs",
     "test:agent": "node scripts/smoke-agent-package.mjs"

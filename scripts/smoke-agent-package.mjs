@@ -11,7 +11,8 @@ const root = path.resolve('release', `Codex-Task-Lens-${pkg.version}-${target}`)
 const resources = target === 'mac' ? path.join(root, 'Codex Task Lens.app/Contents/Resources') : root;
 const launcher = path.join(resources, 'launcher.mjs'), cli = path.join(resources, 'agent/node/cli/index.mjs');
 const entry = target === 'mac' ? path.join(root, 'Codex Task Lens.app/Contents/MacOS/Codex Task Lens') : path.join(root, 'Codex Task Lens.vbs');
-await stat(launcher); await stat(cli); await stat(entry);
+const icon = target === 'mac' ? path.join(root, 'Codex Task Lens.app/Contents/Resources/AppIcon.icns') : path.join(root, 'task-lens-icon.png');
+await stat(launcher); await stat(cli); await stat(entry); await stat(icon);
 
 async function run(program, args, env = {}, cwd = root) {
   return new Promise((resolve, reject) => {
@@ -42,6 +43,8 @@ else {
 assert.equal(direct.code, 0, direct.stderr);
 const directConfig = JSON.parse(direct.stdout.trim());
 assert.equal(directConfig.sessionScanEnabled, true); assert(directConfig.args.includes(codexHome));
+const directAgain = target === 'mac' ? await run(entry, [], env) : await run(path.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32/cscript.exe'), ['//nologo', entry], env);
+assert.equal(directAgain.code, 0, directAgain.stderr);
 
 async function total(directory) {
   let bytes = 0;

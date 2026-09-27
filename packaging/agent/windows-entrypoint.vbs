@@ -36,18 +36,18 @@ If Len(nodePath) = 0 Then
   End If
 End If
 If Len(nodePath) = 0 Or Not fso.FileExists(nodePath) Then
-  MsgBox "Codex Task Lens 需要 Node.js 22.20+ 或 24.x。请先安装 Node.js。", 48, "Codex Task Lens"
+  MsgBox "Codex Task Lens 需要 Node.js 22.20+。请先安装 Node.js。", 48, "Codex Task Lens"
   WScript.Quit 1
 End If
 
-cmd = Q(nodePath) & " -e " & Q("const [a,b]=process.versions.node.split('.').map(Number);process.exit((a===22&&b>=20)||a===24?0:1)")
+cmd = Q(nodePath) & " -e " & Q("const [a,b]=process.versions.node.split('.').map(Number);process.exit(a>22||(a===22&&b>=20)?0:1)")
 Set p = shell.Exec(cmd)
 Do While p.Status = 0: WScript.Sleep 20: Loop
 If p.ExitCode <> 0 Then
   Set p = shell.Exec(Q(nodePath) & " -p " & Q("process.version"))
   Do While p.Status = 0: WScript.Sleep 20: Loop
   versionText = Trim(p.StdOut.ReadAll)
-  MsgBox "Codex Task Lens 需要 Node.js 22.20+ 或 24.x；当前为 " & versionText & "。", 48, "Codex Task Lens"
+  MsgBox "Codex Task Lens 需要 Node.js 22.20+；当前为 " & versionText & "。", 48, "Codex Task Lens"
   WScript.Quit 1
 End If
 
@@ -60,3 +60,4 @@ If smoke = "1" Then
   WScript.Quit p.ExitCode
 End If
 shell.Run cmd, 0, False
+shell.Popup "Task Lens 正在启动或已经运行。若 Codex 已经打开但没有出现 Task Lens，请正常退出 Codex 后再次双击本文件。", 4, "Codex Task Lens", 64

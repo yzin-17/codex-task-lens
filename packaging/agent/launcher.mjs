@@ -6,8 +6,8 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const [nodeMajor, nodeMinor] = process.versions.node.split('.').map(Number);
-if (!((nodeMajor === 22 && nodeMinor >= 20) || nodeMajor === 24)) {
-  console.error(`Codex Task Lens 需要 Node.js 22.20+ 或 24.x；当前为 ${process.version}`);
+if (nodeMajor < 22 || (nodeMajor === 22 && nodeMinor < 20)) {
+  console.error(`Codex Task Lens 需要 Node.js 22.20+；当前为 ${process.version}`);
   process.exit(1);
 }
 const state = process.platform === 'darwin'

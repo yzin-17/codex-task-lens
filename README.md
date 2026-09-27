@@ -4,7 +4,7 @@
 
 ## 下载轻量版
 
-从 [GitHub Releases](https://github.com/yzin-17/codex-task-lens/releases) 按系统下载：macOS 使用 `Codex-Task-Lens-<version>-mac.zip`，Windows 使用 `Codex-Task-Lens-<version>-windows.zip`。默认发行版**不捆绑 Electron / Chromium / Node runtime**，需要本机已有 **Node.js 22.20+ 或 24.x**；不需要 pnpm、Git 或源码构建。
+从 [GitHub Releases](https://github.com/yzin-17/codex-task-lens/releases) 按系统下载：macOS 使用 `Codex-Task-Lens-<version>-mac.zip`，Windows 使用 `Codex-Task-Lens-<version>-windows.zip`。默认发行版**不捆绑 Electron / Chromium / Node runtime**，需要本机已有 **Node.js 22.20+**；不需要 pnpm、Git 或源码构建。
 
 | 系统 | 解压后直接运行 |
 | --- | --- |
@@ -15,7 +15,14 @@
 
 启动入口默认使用本机回环端口 9341，并默认启用 Codex 会话扫描：若存在绝对路径 `CODEX_HOME` 则优先使用，否则读取当前用户 Home 下的 `.codex`（Windows 通常是 `%USERPROFILE%\.codex`）。已有 `desktop-settings.json` 中的端口、应用路径、项目目录、会话目录及显式“停用扫描”设置继续复用。若 Codex 已普通启动且没有 CDP，Task Lens 不会强制退出或重启它；正常退出 Codex 后再从 Task Lens 入口启动即可。
 
-旧 Electron 桌面控制台源码仍保留用于兼容和手动构建，但不再随版本标签默认发布。旧绑定和状态目录继续复用，不需要重新绑定文档。
+旧 Electron 桌面实现已删除，项目只保留轻量 Agent 发行链路。旧绑定和状态目录继续复用，不需要重新绑定文档。
+
+### 启动流程
+
+- Codex **没运行**：双击 Task Lens → 启动轻量 Agent → Agent 用仅回环 CDP 参数启动 Codex → 注入 Task Lens；不需要用户再重启一次。
+- Codex **已经以 Task Lens/CDP 模式运行**：双击后直接复用现有 Codex，并把 Codex 切到前台；不会重启。
+- Codex **已经普通运行、没有 CDP**：现有进程无法事后追加 Electron/Chromium 调试参数。Task Lens 不会强制重启它；macOS 会明确弹窗提示，用户正常退出 Codex 后再双击 Task Lens 即可。
+- Task Lens **已经运行**：再次双击只提示“已在运行”并切回 Codex，不创建第二个长期 Agent。
 
 ## 连接与共存
 
@@ -47,7 +54,7 @@ pnpm run doctor -- --cdp-port 9341
 pnpm start -- --cdp-port 9341 --workspace "$PWD"
 ```
 
-运行轻量 Agent 支持 Node.js 22.20+ 或 24.x；源码构建与 CI 的 pnpm 版本由仓库固定。`--workspace` 是对该目录 Markdown 的明确授权；不传时可在面板选择具体文件。Mac 可用 `--app "/实际路径/Codex.app"` 指定应用；不同 profile 使用不同且固定的 `--source-id`，不要随端口变化修改。
+运行轻量 Agent 要求 Node.js >=22.20.0；源码构建与 CI 的 pnpm 版本由仓库固定。`--workspace` 是对该目录 Markdown 的明确授权；不传时可在面板选择具体文件。Mac 可用 `--app "/实际路径/Codex.app"` 指定应用；不同 profile 使用不同且固定的 `--source-id`，不要随端口变化修改。
 
 轻量 Agent 默认启用本地会话扫描，并复用 `desktop-settings.json` 中的自定义会话目录或显式停用状态。源码 CLI 仍保留显式参数：`--session-root "${CODEX_HOME:-$HOME/.codex}" --allow-session-read`。日志缺失、未知格式和路径歧义时仍可手动绑定；不猜最近活动会话就是当前页面。
 
@@ -65,14 +72,13 @@ pnpm package:agent
 pnpm test:agent
 ```
 
-轻量 staging 有 5 MiB 硬上限，版本 Release 的 ZIP 也在 CI 中检查体积；macOS 与 Windows runner 会实际执行安装器 smoke，确认安装后的 launcher 不依赖仓库 `node_modules`。旧 Electron 自包含包仍可通过手动的 `Legacy Electron packages` workflow 构建，但不会随版本标签默认发布。
+轻量 staging 有 5 MiB 硬上限，版本 Release 的 ZIP 也在 CI 中检查体积；macOS 与 Windows runner 会实际执行直接启动 smoke，确认 launcher 不依赖仓库 `node_modules`。Electron 自包含发行链路已经删除。
 
 实际 Codex 验收入口仍为 `pnpm test:mac -- --enable --probe-only --cdp-port 9341`（只读预检）和 `pnpm test:mac:acceptance -- --enable --interactive --cdp-port 9341`（交互向导）。先停止 Task Lens，保留 Codex 运行；跳过场景不算通过。CI 的受控 Chromium 与打包自检均不能替代真实账号／多窗口／侧聊验收。
 
 ## 文档
 
 - [轻量 Agent 发行 Spec](docs/specs/2026-09-27-lightweight-agent-release.md) · [实施任务](docs/tasks/2026-09-27-lightweight-agent-release.md)
-- [旧 Electron 桌面发行 Spec](docs/specs/2026-09-27-desktop-release.md) · [发行任务](docs/tasks/desktop-release.md) · [产物验证](docs/validation/desktop-release-2026-09-27.md)
 - [一期 Spec](docs/specs/2026-09-26-task-lens-mvp.md) · [原实施台账](docs/tasks/task-lens-mvp.md) · [后续 TODO](docs/TODO.md)
 - [开发与运行](docs/development.md) · [Mac 兼容记录](docs/compatibility/macos.md) · [适配契约](docs/compatibility/adapter-contracts.md)
 - [工具栏／多文档修订台账](docs/tasks/toolbar-multidoc.md) · [文档页验证](docs/validation/task-lens-mvp/document-manager-2026-09-27.md)
