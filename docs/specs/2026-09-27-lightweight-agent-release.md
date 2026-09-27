@@ -26,6 +26,9 @@
 - 双击 Task Lens 入口时，若可信 CDP 已存在则直接连接；若 Codex 未运行则请求现有 CLI 以回环 CDP 参数启动；若 Codex 已普通运行则不强制退出或重启。
 - 会话扫描默认启用；已有设置显式 `sessionScanEnabled=false` 时继续保持关闭，自定义 `sessionRoot`、`workspace`、`appPath`、`port` 继续复用。
 - 同一用户只运行一个轻量 launcher；重复启动时不创建第二个 Agent。
+- launcher 作为长期 supervisor：CLI 子进程退出则 supervisor 退出；收到 SIGINT/SIGTERM 时先请求 CLI graceful shutdown，再删除 lock。
+- supervisor 监听用户状态目录中的本地 control 文件。Agent 已运行但 Codex 已退出时，再次双击入口写入 `restart` 命令；supervisor 正常终止旧 CLI 后重新启动它，从而重新拉起 Codex，supervisor PID 与 lock 不变化。
+- 内嵌面板提供 `设置 → 退出 Task Lens`，必须二次确认；退出只停止 Task Lens 的 CDP bridge、watcher、本地 server 与 supervisor，不关闭 Codex。
 - Windows 文件选择使用系统 PowerShell / WinForms 对话框，不依赖 Electron。
 
 ## 安全边界
@@ -40,6 +43,8 @@
 - Agent bundle 在没有项目 `node_modules` 的环境中执行 `--help` 成功。
 - staging 未压缩体积 < 5 MiB；ZIP 体积记录在验证文档中。
 - macOS ZIP 中的 `.app` 可直接运行 launcher；Windows ZIP 中的 `.vbs` 可直接隐藏运行 launcher，无安装/复制步骤。
+- supervisor control 测试覆盖：`restart` 保持同一 lock PID 并拉起新 CLI；SIGTERM graceful stop 后删除 lock。
+- 内嵌退出必须先收到成功 reply，再触发 Agent shutdown；退出后 Codex 进程与 CDP listener 保持运行，重新双击可恢复注入。
 - Node 22.20 与 Node 24 均通过 Agent bundle 验证；macOS/Windows 原生 smoke 使用最低支持版本 Node 22.20。
 - Linux/macOS 主 CI 与 macOS/Windows Agent smoke 均通过。
 - 新版本 Release 分别发布 macOS ZIP、Windows ZIP、校验和与 smoke 报告；Electron 大包不随 tag 自动发布。

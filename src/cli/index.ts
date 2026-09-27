@@ -38,7 +38,7 @@ async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.help) { console.log(HELP); return; }
   if (options.doctor) { console.log(JSON.stringify(await doctor(options), null, 2)); return; }
-  const connected = wantsCodex(options) ? await startCodex({ ...options, cdpPort: options.cdpPort ?? 9341 }) : null;
+  const connected = wantsCodex(options) ? await startCodex({ ...options, cdpPort: options.cdpPort ?? 9341, shutdown: () => { const timer = setTimeout(() => process.kill(process.pid, 'SIGTERM'), 100); timer.unref(); } }) : null;
   const runtime = connected ?? await startStandalone(options);
   // Readiness must not be observable before graceful shutdown is installed.
   const stop = () => { process.off('SIGINT', stop); process.off('SIGTERM', stop); void runtime.close().catch(() => { console.error('关闭工具失败'); process.exitCode = 1; }); };

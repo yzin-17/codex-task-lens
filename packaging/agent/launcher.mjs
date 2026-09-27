@@ -17,6 +17,7 @@ const state = process.platform === 'darwin'
     : path.join(process.env.XDG_CONFIG_HOME || path.join(homedir(), '.config'), 'CodexTaskLens');
 const configFile = path.join(state, 'desktop-settings.json');
 const lockFile = path.join(state, 'agent.lock');
+const controlFile = path.join(state, 'agent.control.json');
 const logFile = path.join(state, 'agent.log');
 const cli = path.join(root, 'agent/node/cli/index.mjs');
 
@@ -61,21 +62,46 @@ if (process.env.TASK_LENS_AGENT_SMOKE === '1') {
   process.exit(0);
 }
 if (!(await claim())) process.exit(0);
-let child;
+let child, stopping = false, restartRequested = false, controlBusy = false;
+const stop = () => { stopping = true; try { child?.kill('SIGTERM'); } catch { /* already stopped */ } };
+const restart = () => { if (stopping) return; restartRequested = true; try { child?.kill('SIGTERM'); } catch { /* child not started yet */ } };
 try {
   const log = await open(logFile, 'a', 0o600);
+  await rm(controlFile, { force: true });
   await log.write(`\n[${new Date().toISOString()}] Task Lens agent start\n`);
-  child = spawn(process.execPath, config.args, { cwd: root, env: { ...process.env, TASK_LENS_AGENT: '1' }, stdio: ['ignore', log.fd, log.fd], windowsHide: true });
-  const stop = () => { try { child?.kill('SIGTERM'); } catch { /* already stopped */ } };
+  const control = globalThis.setInterval(() => {
+    if (controlBusy || stopping) return;
+    controlBusy = true;
+    void (async () => {
+      try {
+        const message = JSON.parse(await readFile(controlFile, 'utf8'));
+        await rm(controlFile, { force: true });
+        if (message?.action === 'restart') restart();
+        else if (message?.action === 'stop') stop();
+      } catch (error) {
+        if (error?.code !== 'ENOENT') await rm(controlFile, { force: true }).catch(() => undefined);
+      } finally { controlBusy = false; }
+    })();
+  }, 300);
+  control.unref();
   process.once('SIGINT', stop); process.once('SIGTERM', stop);
-  const code = await new Promise((resolve, reject) => { child.once('error', reject); child.once('exit', value => resolve(value ?? 0)); });
+  let code = 0;
+  do {
+    restartRequested = false;
+    child = spawn(process.execPath, config.args, { cwd: root, env: { ...process.env, TASK_LENS_AGENT: '1' }, stdio: ['ignore', log.fd, log.fd], windowsHide: true });
+    code = Number(await new Promise((resolve, reject) => { child.once('error', reject); child.once('exit', value => resolve(value ?? 0)); })) || 0;
+    child = undefined;
+    if (restartRequested && !stopping) await log.write(`[${new Date().toISOString()}] Task Lens runtime restart requested\n`);
+  } while (restartRequested && !stopping);
+  globalThis.clearInterval(control);
   process.off('SIGINT', stop); process.off('SIGTERM', stop);
   await log.close();
-  process.exitCode = Number(code) || 0;
+  process.exitCode = code;
 } catch (error) {
   await mkdir(state, { recursive: true });
   const handle = await open(logFile, 'a', 0o600); await handle.write(`[${new Date().toISOString()}] ${error instanceof Error ? error.message : 'Agent failed'}\n`); await handle.close();
   process.exitCode = 1;
 } finally {
+  await rm(controlFile, { force: true });
   await rm(lockFile, { force: true });
 }

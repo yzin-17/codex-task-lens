@@ -57,3 +57,12 @@ button:disabled{opacity:.5;cursor:default}
 .lens-manager-body{display:flex;flex-direction:column;padding:0;overflow:hidden;min-height:0}
 .lens-manager-body>.lens-document-manager{flex:1;min-height:0;max-height:none;width:100%}
 .lens-manager-body>.lens-popover-warning{flex:none;margin:6px 18px}
+
+.lens-settings{display:flex;flex-direction:column;align-items:flex-start;gap:10px;padding:4px 0 10px}
+.lens-settings h3{margin:0;font-size:13px;font-weight:650}
+.lens-settings p{margin:0;max-width:390px;color:var(--lens-muted);font-size:12px;line-height:1.6}
+.lens-settings-actions{display:flex;gap:8px;align-items:center}
+.lens-settings button{border-radius:7px;padding:7px 11px;font-size:12px}
+.lens-secondary-button,.lens-settings-actions>button:first-child{border:1px solid var(--lens-border);background:var(--lens-bg)}
+.lens-danger-button{border:1px solid #c96b6b;background:#b84f4f;color:#fff;font-weight:600}
+:host([data-theme=dark]) .lens-danger-button{border-color:#d78383;background:#9f4949}

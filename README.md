@@ -22,7 +22,8 @@
 - Codex **没运行**：双击 Task Lens → 启动轻量 Agent → Agent 用仅回环 CDP 参数启动 Codex → 注入 Task Lens；不需要用户再重启一次。
 - Codex **已经以 Task Lens/CDP 模式运行**：双击后直接复用现有 Codex，并把 Codex 切到前台；不会重启。
 - Codex **已经普通运行、没有 CDP**：现有进程无法事后追加 Electron/Chromium 调试参数。Task Lens 不会强制重启它；macOS 会明确弹窗提示，用户正常退出 Codex 后再双击 Task Lens 即可。
-- Task Lens **已经运行**：再次双击只提示“已在运行”并切回 Codex，不创建第二个长期 Agent。
+- Task Lens **已经运行**：再次双击会刷新现有 Agent 与 Codex 的连接；Codex 已退出时会由现有 supervisor 重启 CLI 并重新拉起 Codex，不创建第二个长期 Agent。
+- 需要退出时：面板 `设置 → 退出 Task Lens → 确认退出`。它会正常释放 CDP bridge、文件监听、本地 server 与 lock，但不会关闭 Codex；之后再次双击 App 即可恢复。
 
 ## 连接与共存
 

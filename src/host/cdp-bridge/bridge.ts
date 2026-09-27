@@ -9,7 +9,7 @@ import { openSourceFile } from '../../platform/macos/open-source.js';
 import { resolveToolWorld } from './world.js';
 export type CdpPeer = { isClosed: boolean; send(method: string, params?: CdpEvent): Promise<CdpEvent>; on(method: string, listener: (params: CdpEvent) => void): () => void };
 type Pane = { identity: PaneIdentity; ref: MonitorRef; stop: () => void };
-type Options = { sourceId: string; bundle: string; styles: string; initialGrantId?: string; refreshMs?: number; openFile?: (file: string) => Promise<boolean> };
+type Options = { sourceId: string; bundle: string; styles: string; initialGrantId?: string; refreshMs?: number; openFile?: (file: string) => Promise<boolean>; shutdown?: () => void };
 export class CdpBridge {
   private contextId = 0;
   private frameId = '';
@@ -91,6 +91,7 @@ export class CdpBridge {
       case 'clearBinding': return this.service.clear(monitor, generation, request.params.expectedBindingVersion);
       case 'getSnapshot': return this.service.snapshot(monitor, generation);
       case 'openSource': return this.service.openSource(monitor, request.params.expectedBindingVersion, request.params.line, this.options.openFile ?? openSourceFile, request.params.bindingId);
+      case 'shutdown': return this.options.shutdown ? Promise.resolve({ stopping: true }) : Promise.reject(new LensError('permission_denied', '当前运行方式不允许从面板退出后台 Agent'));
       default: return Promise.reject(new LensError('permission_denied', '内嵌界面不能枚举其他会话或自建订阅'));
     }
   }
@@ -109,6 +110,7 @@ export class CdpBridge {
       await this.refresh();
       if (this.stopped || this.panes.get(paneId) !== pane) return;
       await this.push({ kind: 'reply', paneId, generation: request.generation, requestId: request.requestId, ok: !error, ...(error ? { error } : { result }) });
+      if (!error && request.operation === 'shutdown') this.options.shutdown?.();
     } finally { this.inflight--; }
   }
   resources() { return { panes: this.panes.size, listeners: this.stops.length, inflight: this.inflight, timer: !!this.timer }; }

@@ -47,6 +47,7 @@ export async function startLocalServer(service:LensService,options:{port?:number
       case 'clearBinding':return service.clear(monitor,generation,request.params.expectedBindingVersion);
       case 'getSnapshot':return service.snapshot(monitor,generation);
       case 'openSource':return service.openSource(monitor,request.params.expectedBindingVersion,request.params.line,options.openFile??openSourceFile,request.params.bindingId);
+      case 'shutdown':throw new HttpFailure(403,'独立面板不能退出后台 Agent');
       case 'subscribe':void params;throw new HttpFailure(400,'订阅必须使用事件入口');
     }
   }

@@ -29,6 +29,7 @@ if [[ "${TASK_LENS_AGENT_SMOKE:-0}" == "1" ]]; then
 fi
 STATE="$HOME/Library/Application Support/CodexTaskLens"
 LOCK="$STATE/agent.lock"
+CONTROL="$STATE/agent.control.json"
 SETTINGS="$STATE/desktop-settings.json"
 PORT="$($NODE -e 'const fs=require("fs");let p=9341;try{const v=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));if(Number.isInteger(v.port)&&v.port>=1024&&v.port<=65535)p=v.port}catch{}process.stdout.write(String(p))' "$SETTINGS")"
 CODEX_RUNNING=0; LISTENING=0
@@ -36,7 +37,13 @@ CODEX_RUNNING=0; LISTENING=0
 /usr/sbin/lsof -nP -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1 && LISTENING=1
 LOCK_PID="$(/usr/bin/sed -n 's/.*"pid":\([0-9][0-9]*\).*/\1/p' "$LOCK" 2>/dev/null || true)"
 if [[ -n "$LOCK_PID" ]] && /bin/kill -0 "$LOCK_PID" 2>/dev/null; then
-  if [[ "$CODEX_RUNNING" == "1" && "$LISTENING" == "0" ]]; then
+  if [[ "$CODEX_RUNNING" == "0" ]]; then
+    /bin/mkdir -p "$STATE"
+    TMP="$CONTROL.$$"
+    /usr/bin/printf '{"action":"restart","requestedAt":%s}\n' "$(/bin/date +%s)" > "$TMP"
+    /bin/mv -f "$TMP" "$CONTROL"
+    /usr/bin/osascript -e 'display notification "正在重新启动 Codex 并恢复 Task Lens…" with title "Codex Task Lens"' >/dev/null 2>&1 || true
+  elif [[ "$LISTENING" == "0" ]]; then
     /usr/bin/osascript -e "display dialog \"Task Lens 后台已运行，但当前 Codex 没有开启本机调试端口 $PORT。\\n\\n请先正常退出 Codex，再双击 Task Lens。\" buttons {\"知道了\"} default button 1 with icon note" >/dev/null 2>&1 || true
   else
     /usr/bin/osascript -e 'display notification "Task Lens 已在运行，正在打开 Codex" with title "Codex Task Lens"' >/dev/null 2>&1 || true

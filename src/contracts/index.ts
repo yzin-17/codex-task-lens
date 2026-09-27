@@ -32,6 +32,7 @@ export interface Params {
   confirmBinding: { previewId: string; expectedBindingVersion: number };
   confirmBindings: { previewIds: string[]; keepBindingIds: string[]; expectedBindingVersion: number };
   pickMarkdownFiles: { consent: true };
+  shutdown: { consent: true };
   clearBinding: { expectedBindingVersion: number };
   getSnapshot: Record<string, never>;
   openSource: { expectedBindingVersion: number; line: number; bindingId?: string };
@@ -45,6 +46,7 @@ export interface Results {
   confirmBinding: ViewState;
   confirmBindings: ViewState;
   pickMarkdownFiles: { paths: string[]; cancelled: boolean };
+  shutdown: { stopping: true };
   clearBinding: ViewState;
   getSnapshot: ViewState;
   openSource: { opened: boolean; line: number; path: string };
@@ -112,6 +114,7 @@ export function parseRequest(input: unknown): Request {
     case 'previewDocument': { const p = object(v.params, ['grantId', 'path', 'scope']); return { ...base, operation, params: { grantId: text(p.grantId, 128), path: text(p.path), scope: parseScope(p.scope) } }; }
     case 'confirmBinding': { const p = object(v.params, ['previewId', 'expectedBindingVersion']); return { ...base, operation, params: { previewId: text(p.previewId, 128), expectedBindingVersion: integer(p.expectedBindingVersion) } }; }
     case 'pickMarkdownFiles': { const p = object(v.params, ['consent']); if (p.consent !== true) return fail('文件选择需要明确操作'); return { ...base, operation, params: { consent: true } }; }
+    case 'shutdown': { const p = object(v.params, ['consent']); if (p.consent !== true) return fail('退出 Task Lens 需要明确确认'); return { ...base, operation, params: { consent: true } }; }
     case 'confirmBindings': {
       const p = object(v.params, ['previewIds', 'keepBindingIds', 'expectedBindingVersion']);
       const ids = (value: unknown) => { if (!Array.isArray(value) || value.length > MAX_DOCUMENTS) return fail('文档数量超限'); const rows = value.map(id => text(id, 128)); if (new Set(rows).size !== rows.length) return fail('文档引用重复'); return rows; };

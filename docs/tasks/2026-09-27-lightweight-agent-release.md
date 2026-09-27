@@ -20,3 +20,7 @@
 - [x] A14：新增 Task Lens 专用图标生成器，macOS 打包生成并嵌入 `AppIcon.icns`；Windows 包附同源 PNG 资源。
 - [x] G5：实现提交 `9a6adc3`：CI `36312619555` 的 Ubuntu/macOS 完整回归通过；Agent workflow `36312619540` 的 Node 22.20/24 验证、macOS Universal App 与 Windows 直接启动 smoke 全部通过。用户 Mac 真机验证 Codex PID `31181` 连续两次双击均不变，Agent lock PID `49095` 不变，App 原生入口完成后进程数均为 0，最终 `host=true`。
 - [x] G6：`v0.1.0-alpha.8` 已发布；tag workflow `36313949037` 全部通过。Release `397611505` 含 macOS ZIP `625,939` bytes、Windows ZIP `302,241` bytes、两份 direct-launch smoke 与 `SHA256SUMS`；macOS SHA-256 `f3c54b6bd567b5847b83499cca40caeb46bdb0f7edbde75a86ff876f41f7a789`，Windows SHA-256 `13d61b4c39e1663e8c8414d165901e7fec4facdf9dd88fc1380bbf4dcdca264a`。
+- [x] A15：supervisor 新增本地 control 通道与 CLI restart 循环；Agent 已运行但 Codex 已退出时，再次双击会复用同一 supervisor/lock，graceful 重启 CLI 并重新拉起 Codex。macOS 与 Windows 启动入口均会向现有 supervisor 发送 restart。
+- [x] A16：内嵌面板新增“设置 → 退出 Task Lens”，二次确认后由受 nonce/当前 pane 身份保护的协议请求触发 graceful shutdown；独立 Web 面板不允许该操作。
+- [x] G7：本机新增 supervisor integration test，确认 restart 前后 lock PID 不变，SIGTERM 后 lock 删除；核心测试 139 项、UI/CDP 63 项、macOS package/direct-launch smoke 全部通过。真实 Codex 验证退出后 `agent.lock` 删除但 Codex PID `31181` 与 9341 listener 不变；重新双击后 lock 恢复并再次 `host=true`。
+- [ ] G8：发布下一版并核对 macOS/Windows direct-launch smoke、ZIP 与 SHA256。

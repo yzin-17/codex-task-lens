@@ -28,10 +28,11 @@ async function fixture(authorizeWorkspace = false, sessionCandidate = false) {
   let session = await connect();
   const store = await BindingStore.open(path.join(root, 'state')), service = new LensService(store, sessionFile ? { hints: async () => ({ status: 'ready', paths: [{ path: sessionFile, source: 'current conversation' }], diagnostics: [] }) } : {});
   const initialGrantId = authorizeWorkspace ? (await service.authorize(workspace, 'directory')).id : undefined;
-  const options = { sourceId: 'fixture', bundle: await readFile('dist/inject/task-lens.js', 'utf8'), styles: await readFile('dist/inject/task-lens.css', 'utf8'), refreshMs: 40, initialGrantId };
+  let shutdownRequests = 0;
+  const options = { sourceId: 'fixture', bundle: await readFile('dist/inject/task-lens.js', 'utf8'), styles: await readFile('dist/inject/task-lens.css', 'utf8'), refreshMs: 40, initialGrantId, shutdown: () => { shutdownRequests++; } };
   let bridge = await CdpBridge.attach(session, service, options);
   return {
-    root, workspace, sessionFile, page, service, bridge: () => bridge,
+    root, workspace, sessionFile, page, service, bridge: () => bridge, shutdownRequests: () => shutdownRequests,
     reattach: async () => { await bridge.close(); bridge = await CdpBridge.attach(session, service, options); },
     reconnect: async () => { session.close(); await expect.poll(() => bridge.isClosed).toBe(true); session = await connect(); bridge = await CdpBridge.attach(session, service, options); },
     close: async () => { await bridge.close(); session.close(); await context.close(); await service.close(); await store.close(); await new Promise<void>(resolve => server.close(() => resolve())); await rm(root, { recursive: true, force: true }); },
@@ -44,6 +45,17 @@ async function bind(page: Page, file: string) {
   await page.getByRole('button', { name: '预览文件', exact: true }).click();
   await page.getByRole('button', { name: '确认绑定', exact: true }).click();
 }
+test('settings requires explicit confirmation before requesting graceful Task Lens shutdown', async () => {
+  const f = await fixture(); try {
+    await expand(f.page);
+    await f.page.getByRole('button', { name: '设置', exact: true }).click();
+    await expect(f.page.getByText('退出只会停止 Task Lens 的 CDP 注入、文件监听和本地服务，不会关闭 Codex。之后再次双击 Codex Task Lens 即可重新启动。')).toBeVisible();
+    await f.page.getByRole('button', { name: '退出 Task Lens', exact: true }).click();
+    expect(f.shutdownRequests()).toBe(0);
+    await f.page.getByRole('button', { name: '确认退出', exact: true }).click();
+    await expect.poll(() => f.shutdownRequests()).toBe(1);
+  } finally { await f.close(); }
+});
 test('real CDP + shared service + React: bind, watch atomic saves and isolate A→B→A', async () => {
   const f = await fixture(); try {
     const one = path.join(f.root, 'one.md'), two = path.join(f.root, 'two.md'); await writeFile(one, '- [ ] alpha\n- [x] already\n'); await writeFile(two, '- [ ] beta\n');

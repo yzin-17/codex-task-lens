@@ -18,7 +18,25 @@ Function FirstExisting(paths)
   FirstExisting = ""
 End Function
 
-Dim localAppData, programFiles, userProfile, candidates
+Function AgentAlive(lockPath)
+  Dim file, text, regex, matches, pid, service, processes
+  AgentAlive = False
+  If Not fso.FileExists(lockPath) Then Exit Function
+  On Error Resume Next
+  Set file = fso.OpenTextFile(lockPath, 1, False)
+  text = file.ReadAll: file.Close
+  Set regex = New RegExp: regex.Pattern = """pid""\s*:\s*([0-9]+)": regex.Global = False
+  Set matches = regex.Execute(text)
+  If matches.Count = 1 Then
+    pid = CLng(matches(0).SubMatches(0))
+    Set service = GetObject("winmgmts:\\.\root\cimv2")
+    Set processes = service.ExecQuery("SELECT ProcessId FROM Win32_Process WHERE ProcessId=" & pid)
+    AgentAlive = (processes.Count > 0)
+  End If
+  On Error GoTo 0
+End Function
+
+Dim localAppData, programFiles, userProfile, candidates, stateDir, lockPath, controlPath, controlFile
 localAppData = shell.ExpandEnvironmentStrings("%LOCALAPPDATA%")
 programFiles = shell.ExpandEnvironmentStrings("%ProgramFiles%")
 userProfile = shell.ExpandEnvironmentStrings("%USERPROFILE%")
@@ -49,6 +67,18 @@ If p.ExitCode <> 0 Then
   versionText = Trim(p.StdOut.ReadAll)
   MsgBox "Codex Task Lens 需要 Node.js 22.20+；当前为 " & versionText & "。", 48, "Codex Task Lens"
   WScript.Quit 1
+End If
+
+stateDir = fso.BuildPath(shell.ExpandEnvironmentStrings("%APPDATA%"), "CodexTaskLens")
+lockPath = fso.BuildPath(stateDir, "agent.lock")
+controlPath = fso.BuildPath(stateDir, "agent.control.json")
+If smoke <> "1" And AgentAlive(lockPath) Then
+  If Not fso.FolderExists(stateDir) Then fso.CreateFolder(stateDir)
+  Set controlFile = fso.CreateTextFile(controlPath, True, False)
+  controlFile.Write "{""action"":""restart"",""requestedAt"":" & CStr(DateDiff("s", "01/01/1970 00:00:00", Now())) & "}"
+  controlFile.Close
+  shell.Popup "Task Lens 已在运行，正在刷新连接；若 Codex 已退出会自动重新启动。", 3, "Codex Task Lens", 64
+  WScript.Quit 0
 End If
 
 cmd = Q(nodePath) & " " & Q(launcherPath)

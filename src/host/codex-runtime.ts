@@ -13,7 +13,7 @@ import { SessionRecords } from '../adapters/codex/session-records/index.js';
 import { discoverApp, verifyEndpoint, launchCodex, defaultDataDirectory, type CodexApp } from '../platform/codex-app.js';
 import { claimTarget } from './target-lock.js';
 import type { SessionHints } from '../contracts/index.js';
-export type CodexOptions = { dataDirectory?: string; port?: number; cdpPort: number; appPath?: string; sourceId: string; sessionRoot?: string; allowSessionRead?: boolean; workspace?: string; launch?: boolean; openBrowser?: boolean; openFile?: (file: string) => Promise<boolean> };
+export type CodexOptions = { dataDirectory?: string; port?: number; cdpPort: number; appPath?: string; sourceId: string; sessionRoot?: string; allowSessionRead?: boolean; workspace?: string; launch?: boolean; openBrowser?: boolean; openFile?: (file: string) => Promise<boolean>; shutdown?: () => void };
 export async function startCodex(options: CodexOptions) {
   const directory = options.dataDirectory ?? defaultDataDirectory();
   const store = await BindingStore.open(directory);
@@ -54,7 +54,7 @@ export async function startCodex(options: CodexOptions) {
               const current = await verifyEndpoint(app!, options.cdpPort);
               if (current.pid !== endpoint.pid || !current.targets.some(item => item.id === target.id && item.webSocketDebuggerUrl === target.webSocketDebuggerUrl)) throw new Error('Endpoint changed');
             });
-            const bridge = await CdpBridge.attach(session, service!, { sourceId: options.sourceId, bundle, styles, initialGrantId, openFile: options.openFile });
+            const bridge = await CdpBridge.attach(session, service!, { sourceId: options.sourceId, bundle, styles, initialGrantId, openFile: options.openFile, shutdown: options.shutdown });
             if (closed) { await bridge.close(); session.close(); await lock.release(); break; }
             targets.set(target.id, { session, bridge, socket: target.webSocketDebuggerUrl, lock });
           } catch (error) { session?.close(); await lock?.release(); failures.push(error instanceof Error && error.name === 'LensError' ? error.message : '页面连接失败'); }

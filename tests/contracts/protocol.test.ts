@@ -7,6 +7,8 @@ describe('protocol v1', () => {
   it.each([{...request, extra:true}, {...request, protocolVersion:2}, {...request, generation:-1}, {...request, operation:'exec'}, {...request, params:{shell:'rm'}}, {...request, monitor:{kind:'standalone',id:'s1',threadId:'t'}}, {...request, monitor:null}])('rejects invalid input %#', value => { expect(() => parseRequest(value)).toThrow(); });
   it('requires affirmative authorization and bounded scope', () => {
     expect(parseRequest({...request,operation:'listCandidates',params:{}})).toMatchObject({operation:'listCandidates',params:{}});
+    expect(parseRequest({...request,operation:'shutdown',params:{consent:true}})).toMatchObject({operation:'shutdown',params:{consent:true}});
+    expect(() => parseRequest({...request,operation:'shutdown',params:{consent:false}})).toThrow();
     expect(() => parseRequest({...request,operation:'authorize',params:{path:'/tmp/a.md',kind:'file',consent:false}})).toThrow();
     expect(() => parseScope({kind:'section',path:[{depth:1,title:'A',ordinal:2,total:1}]})).toThrow();
     expect(() => parseScope({kind:'section',path:[{depth:7,title:'A',ordinal:1,total:1}]})).toThrow();
