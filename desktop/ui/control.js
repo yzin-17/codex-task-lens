@@ -7,13 +7,14 @@ function render(state) {
   find('status').textContent = state.targets ? '已连接 Codex' : state.running ? '本地服务已就绪' : '监控已停止';
   find('dot').classList.toggle('connected', state.targets > 0);
   find('targets').textContent = state.targets ? `${state.targets} 个页面` : '';
-  find('diagnostic').textContent = state.diagnostic;
+  find('diagnostic').textContent = [state.diagnostic, state.sessionDiagnostic].filter(Boolean).join('；');
   if (!editingPort) find('port').value = state.settings.port;
   find('app-path').textContent = state.settings.appPath || '自动查找已安装的 Codex';
   find('workspace').textContent = state.settings.workspace || '尚未授权项目目录';
-  for (const id of ['app-path', 'workspace']) find(id).title = find(id).textContent;
+  find('session-root').textContent = state.settings.sessionRoot || '未启用本地会话扫描';
+  for (const id of ['app-path', 'workspace', 'session-root']) find(id).title = find(id).textContent;
   for (const button of document.querySelectorAll('button')) button.disabled = localBusy || state.busy;
-  if (!localBusy && !state.busy) { find('stop').disabled = !state.running; find('clear-workspace').disabled = !state.settings.workspace; }
+  if (!localBusy && !state.busy) { find('stop').disabled = !state.running; find('clear-workspace').disabled = !state.settings.workspace; find('clear-session-root').disabled = !state.settings.sessionRoot; }
 }
 async function perform(work) {
   if (localBusy) return; localBusy = true; find('error').textContent = '';
@@ -29,5 +30,7 @@ find('panel').addEventListener('click', () => { void perform(() => api.openPanel
 find('choose-app').addEventListener('click', () => { void perform(() => api.chooseApp()); });
 find('choose-workspace').addEventListener('click', () => { void perform(() => api.chooseWorkspace()); });
 find('clear-workspace').addEventListener('click', () => { void perform(() => api.clearWorkspace()); });
+find('choose-session-root').addEventListener('click', () => { void perform(() => api.chooseSessionRoot()); });
+find('clear-session-root').addEventListener('click', () => { void perform(() => api.clearSessionRoot()); });
 find('launch').addEventListener('click', () => { void perform(() => api.launch()); });
 void refresh(); setInterval(() => { void refresh(); }, 1500);

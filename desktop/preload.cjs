@@ -3,5 +3,6 @@ const call = (op, value) => ipcRenderer.invoke('task-lens:control', { op, value 
 contextBridge.exposeInMainWorld('taskLens', Object.freeze({
   state: () => call('state'), connect: port => call('connect', port), stop: () => call('stop'),
   chooseApp: () => call('choose-app'), chooseWorkspace: () => call('choose-workspace'),
-  clearWorkspace: () => call('clear-workspace'), openPanel: () => call('open-panel'), launch: () => call('launch')
+  clearWorkspace: () => call('clear-workspace'), chooseSessionRoot: () => call('choose-session-root'),
+  clearSessionRoot: () => call('clear-session-root'), openPanel: () => call('open-panel'), launch: () => call('launch')
 }));

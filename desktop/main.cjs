@@ -5,6 +5,7 @@ const path = require('node:path');
 const os = require('node:os');
 const { pathToFileURL } = require('node:url');
 const policy = require('./policy.cjs');
+const { monitoringOptions } = require('./runtime-options.cjs');
 const smokeIndex = process.argv.indexOf('--smoke-test');
 const smokeOutput = smokeIndex >= 0 ? process.argv[smokeIndex + 1] : null;
 if (smokeIndex >= 0 && (!smokeOutput || !path.isAbsolute(smokeOutput))) throw new Error('Smoke report requires an absolute output path');
@@ -40,7 +41,7 @@ async function stopMonitoring() {
 async function startMonitoring() {
   await stopMonitoring(); diagnostic = '正在检测应用和端口…';
   const { startCodex } = await import('../dist/node/host/codex-runtime.js');
-  try { runtime = await startCodex({ dataDirectory: home, cdpPort: config.port, appPath: config.appPath, workspace: config.workspace, sourceId: 'codex-default', openBrowser: false, openFile: async file => !(await shell.openPath(file)) }); }
+  try { runtime = await startCodex(monitoringOptions(config, home, async file => !(await shell.openPath(file)))); }
   catch (error) { diagnostic = error?.name === 'LensError' ? error.message : '启动失败，请检查应用数据目录和端口设置'; }
 }
 async function exclusive(work) {
@@ -73,6 +74,11 @@ async function action(op, value) {
       if (!result.canceled && result.filePaths[0]) { config.workspace = result.filePaths[0]; await saveConfig(); await startMonitoring(); } break;
     }
     case 'clear-workspace': delete config.workspace; await saveConfig(); await startMonitoring(); break;
+    case 'choose-session-root': {
+      const result = await dialog.showOpenDialog(control, { title: '选择 Codex 会话目录（可随时停用）', defaultPath: config.sessionRoot ?? path.join(os.homedir(), '.codex'), properties: ['openDirectory'] });
+      if (!result.canceled && result.filePaths[0]) { config.sessionRoot = result.filePaths[0]; await saveConfig(); await startMonitoring(); } break;
+    }
+    case 'clear-session-root': delete config.sessionRoot; await saveConfig(); await startMonitoring(); break;
     case 'launch': {
       const result = await dialog.showMessageBox(control, { type: 'warning', title: '调试启动 Codex', message: '仅在 Codex 已正常退出时启动。', detail: '将开放仅本机可访问的 CDP 端口。本机程序可通过它访问应用页面；不要运行不可信的调试工具。不会强退或重启已有 Codex。停止 Task Lens 不会关闭此端口。', buttons: ['取消', '启动 Codex'], defaultId: 0, cancelId: 0 });
       if (result.response === 1) { const appInfo = await platform.discoverApp(config.appPath); await platform.launchCodex(appInfo, config.port, true); await startMonitoring(); } break;

@@ -395,6 +395,8 @@ test('bound scopes use a searchable short-label list; Escape closes only the inn
     await expand(f.page); await bind(f.page, file); await expect(f.page.locator('.lens-trigger')).toHaveText('进度 1/2');
     await f.page.getByRole('button', { name: '管理文档', exact: true }).click();
     await f.page.getByRole('button', { name: '管理已选文档', exact: true }).click();
+    await expect(f.page.locator('.lens-draft-files>li')).toHaveCount(1);
+    expect(await f.page.locator('.lens-draft-files>li').evaluate(node => getComputedStyle(node).borderBottomWidth)).toBe('0px');
     const scope = f.page.getByRole('button', { name: '计数范围 long-scope.md', exact: true });
     await expect(f.page.locator('.lens-document-manager select')).toHaveCount(0);
     await scope.click(); const search = f.page.getByRole('combobox');
@@ -449,10 +451,10 @@ test('document summary and searchable scopes fit narrow light and dark popovers 
       await expect(f.page.locator('[data-task-lens-host]')).toHaveAttribute('data-theme', dark ? 'dark' : 'light');
       const geometry = await f.page.locator('.lens-document-manager').evaluate(node => {
         const top = node.querySelector('.lens-selected-summary')!.getBoundingClientRect(), foot = node.querySelector('.lens-manager-footer')!.getBoundingClientRect(), box = node.getBoundingClientRect();
-        const menu = node.querySelector('.lens-scope-menu')!;
-        return { fits: node.scrollWidth <= node.clientWidth && menu.scrollWidth <= menu.clientWidth, rails: top.top >= box.top && foot.bottom <= box.bottom, bg: getComputedStyle(node).backgroundColor };
+        const menu = node.querySelector('.lens-scope-menu')!, menuBox = menu.getBoundingClientRect();
+        return { fits: node.scrollWidth <= node.clientWidth && menu.scrollWidth <= menu.clientWidth, rails: top.top >= box.top && foot.bottom <= box.bottom, menuOpen: menu.matches(':popover-open'), menuClear: menuBox.bottom <= foot.top + 1, bg: getComputedStyle(node).backgroundColor };
       });
-      expect(geometry.fits).toBe(true); expect(geometry.rails).toBe(true); expect(geometry.bg).toBe(dark ? 'rgb(36, 37, 40)' : 'rgb(255, 255, 255)');
+      expect(geometry.fits).toBe(true); expect(geometry.rails).toBe(true); expect(geometry.menuOpen).toBe(true); expect(geometry.menuClear).toBe(true); expect(geometry.bg).toBe(dark ? 'rgb(36, 37, 40)' : 'rgb(255, 255, 255)');
     }
   } finally { await f.close(); }
 });

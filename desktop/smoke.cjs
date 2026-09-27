@@ -9,7 +9,9 @@ module.exports = async ({ control, protect, home }) => {
   const response = await control.webContents.executeJavaScript('window.taskLens.state()');
   assert(response.ok && response.state.version === app.getVersion());
   assert.equal(await control.webContents.executeJavaScript('typeof require'), 'undefined');
-  result.controlLoaded = true; result.preloadIsolated = true;
+  assert.equal(await control.webContents.executeJavaScript("typeof window.taskLens.chooseSessionRoot + ':' + typeof window.taskLens.clearSessionRoot"), 'function:function');
+  assert.equal(await control.webContents.executeJavaScript("!!document.querySelector('#session-root') && !!document.querySelector('#choose-session-root') && !!document.querySelector('#clear-session-root')"), true);
+  result.controlLoaded = true; result.preloadIsolated = true; result.sessionControls = true;
   const { startStandalone } = await import('../dist/node/host/standalone-runtime.js');
   const dataDirectory = path.join(home, 'isolated-state'), file = path.join(home, 'task with spaces.md');
   await fs.writeFile(file, '# Package smoke\n- [ ] Pending\n- [x] Done\n');
