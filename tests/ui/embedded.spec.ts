@@ -357,6 +357,18 @@ test('drag clamps to the conversation, persists on updates and resets on thread 
   } finally { await f.close(); }
 });
 
+test('empty candidate state presents a clear project authorization action', async () => {
+  const f = await fixture(); try {
+    await expand(f.page); await f.page.getByRole('button', { name: '绑定 Task 文档', exact: true }).click();
+    const authorize = f.page.getByRole('button', { name: '授权项目目录', exact: true });
+    await expect(authorize).toBeVisible();
+    await expect(authorize).toHaveClass(/lens-authorize-workspace/);
+    await authorize.click();
+    await expect(f.page.getByRole('radio', { name: '目录', exact: true })).toHaveAttribute('aria-checked', 'true');
+    await expect(f.page.getByLabel('本地绝对路径', { exact: true })).toBeFocused();
+  } finally { await f.close(); }
+});
+
 test('candidate-first document manager keeps selected summary and confirmation visible while scrolling', async () => {
   const f = await fixture(true); try {
     for (let i = 0; i < 24; i++) await writeFile(path.join(f.workspace, `docs/tasks/${String(i).padStart(2, '0')}.md`), `# Candidate${i}\n- [ ] pending\n- [x] done\n`);

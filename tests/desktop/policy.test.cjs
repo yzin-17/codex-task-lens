@@ -17,9 +17,11 @@ test('renderer is trusted only when it is the exact main frame of the control wi
   frame.url = 'https://example.com'; assert.equal(policy.senderAllowed({ sender: contents, senderFrame: frame }, contents), false);
 });
 test('stored configuration contains only validated local settings', () => {
-  assert.deepEqual(policy.settings({}), { port: 9341 });
+  assert.deepEqual(policy.settings({}), { port: 9341, sessionScanEnabled: true });
   assert.equal(policy.settings({ port: 9341, workspace: path.resolve('fixture') }).port, 9341);
   assert.equal(policy.settings({ sessionRoot: path.resolve('.codex') }).sessionRoot, path.resolve('.codex'));
+  assert.equal(policy.settings({ sessionScanEnabled: false }).sessionScanEnabled, false);
+  assert.throws(() => policy.settings({ sessionScanEnabled: 'false' }));
   assert.throws(() => policy.settings({ sessionRoot: 'relative/.codex' }));
   assert.throws(() => policy.settings({ token: 'not allowed' }));
   assert.throws(() => policy.settings({ port: -1 }));

@@ -33,7 +33,7 @@ export function DocumentManager({ api, view, initialGrantId, onBound, onCancel }
     container.scrollTop += rect.top - viewport.top - 8; row.focus({ preventScroll: true });
   }
   useLayoutEffect(() => { if (scroller.current) scroller.current.scrollTop = positions.current[page]; if (targetRow.current) { reveal(targetRow.current); targetRow.current = null; } }, [page]);
-  function focusDirectory() { draft.setKind('directory'); draft.setInput(''); requestAnimationFrame(() => pathInput.current?.focus({ preventScroll: true })); }
+  function focusDirectory() { draft.setKind('directory'); draft.setInput(''); requestAnimationFrame(() => { pathInput.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }); pathInput.current?.focus({ preventScroll: true }); }); }
   const changes = `新增 ${draft.added} 份，移除 ${draft.removed} 份${draft.scopeChanged ? `，范围更改 ${draft.scopeChanged} 份` : ''}`;
   const locked = busy || saving;
   return <section className="lens-document-manager" aria-label="选择 Task 文档" data-page={page}>
@@ -57,7 +57,7 @@ export function DocumentManager({ api, view, initialGrantId, onBound, onCancel }
         <section className="lens-manager-candidates" aria-label="候选文档">
           <div className="lens-section-heading"><h3>可添加文档</h3><button type="button" className="lens-text-button" disabled={!draft.grant || draft.scanning || locked} onClick={() => { void draft.scan(); }}>{draft.scanning ? '扫描中…' : '重新扫描'}</button></div>
           <p className="lens-muted">优先显示当前对话线索，仅扫描已授权范围。</p>
-          {!draft.grant && <div className="lens-candidate-empty">还没有可扫描的授权范围。<button type="button" className="lens-text-button" onClick={focusDirectory} disabled={locked}>授权项目目录</button><span>也可在下方直接添加文件。</span></div>}
+          {!draft.grant && <div className="lens-candidate-empty"><strong>还没有授权项目目录</strong><span>授权后可自动扫描当前项目中的 Task 文档；也可以继续手动添加文件。</span><button type="button" className="lens-authorize-workspace" onClick={focusDirectory} disabled={locked} title="切换到目录模式并填写项目路径">授权项目目录 <span aria-hidden="true">↓</span></button></div>}
           {draft.scanError && <p role="alert" className="lens-manager-error">扫描不可用：{draft.scanError}。仍可手动添加。</p>}
           {draft.candidates?.incomplete && <p className="lens-manager-error">扫描结果不完整，请缩小范围。</p>}
           {draft.candidates?.diagnostics.map((text, i) => <p key={i} className="lens-muted">{text}</p>)}

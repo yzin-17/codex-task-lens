@@ -8,3 +8,6 @@
 - [x] G1：Linux/macOS CI、三平台桌面打包与产物 smoke 全部通过。实现提交 `97f49ae`：CI `36298343457`、Desktop packages `36298343453`。
 - [x] G2：用户 Mac Codex `26.924.22138` 实测：单文档底边框 `0px`，章节菜单位于 top layer 且 `menuBottom=1230 < footerTop=1292.5`；验证后 `尚无更改`，未修改真实绑定。
 - [x] G3：从验证通过的 main 打 `v0.1.0-alpha.4`，Release `397529927` 已核对：6 个桌面发行包、3 个 packaged smoke 报告和 `SHA256SUMS` 共 10 个附件；tag workflow `36298718724` 全部通过。
+- [x] S6：桌面会话扫描改为默认启用 `${HOME}/.codex`；旧配置未声明状态时迁移为启用，明确停用后以 `sessionScanEnabled=false` 持久保持关闭。
+- [x] S7：候选空状态的“授权项目目录”改为明确按钮；点击切换目录模式、滚动并聚焦路径输入，不自动授权。
+- [ ] G4：新增默认启用／持久停用、明显授权按钮的完整 CI、三平台打包、用户 Mac 实测与新 Release 核对。

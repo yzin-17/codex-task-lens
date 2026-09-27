@@ -11,10 +11,13 @@ function render(state) {
   if (!editingPort) find('port').value = state.settings.port;
   find('app-path').textContent = state.settings.appPath || '自动查找已安装的 Codex';
   find('workspace').textContent = state.settings.workspace || '尚未授权项目目录';
-  find('session-root').textContent = state.settings.sessionRoot || '未启用本地会话扫描';
+  const sessionScanEnabled = state.settings.sessionScanEnabled !== false;
+  const sessionRoot = state.settings.effectiveSessionRoot || state.settings.sessionRoot;
+  find('session-root').textContent = sessionScanEnabled ? `${sessionRoot || '~/.codex'} · 已启用` : `${sessionRoot || state.settings.sessionRoot || '~/.codex'} · 已停用`;
+  find('choose-session-root').textContent = sessionScanEnabled ? '更换目录' : '选择会话目录';
   for (const id of ['app-path', 'workspace', 'session-root']) find(id).title = find(id).textContent;
   for (const button of document.querySelectorAll('button')) button.disabled = localBusy || state.busy;
-  if (!localBusy && !state.busy) { find('stop').disabled = !state.running; find('clear-workspace').disabled = !state.settings.workspace; find('clear-session-root').disabled = !state.settings.sessionRoot; }
+  if (!localBusy && !state.busy) { find('stop').disabled = !state.running; find('clear-workspace').disabled = !state.settings.workspace; find('clear-session-root').disabled = state.settings.sessionScanEnabled === false; }
 }
 async function perform(work) {
   if (localBusy) return; localBusy = true; find('error').textContent = '';

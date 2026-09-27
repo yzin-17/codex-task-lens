@@ -5,7 +5,7 @@ const path = require('node:path');
 const os = require('node:os');
 const { pathToFileURL } = require('node:url');
 const policy = require('./policy.cjs');
-const { monitoringOptions } = require('./runtime-options.cjs');
+const { monitoringOptions, effectiveSessionRoot } = require('./runtime-options.cjs');
 const smokeIndex = process.argv.indexOf('--smoke-test');
 const smokeOutput = smokeIndex >= 0 ? process.argv[smokeIndex + 1] : null;
 if (smokeIndex >= 0 && (!smokeOutput || !path.isAbsolute(smokeOutput))) throw new Error('Smoke report requires an absolute output path');
@@ -14,9 +14,9 @@ syncFs.mkdirSync(home, { recursive: true }); app.setPath('userData', home);
 app.setName('Codex Task Lens'); app.setAppUserModelId('dev.yzin.codex-task-lens');
 protocol.registerSchemesAsPrivileged([{ scheme: 'tasklens', privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 let control = null, panel = null, tray = null, runtime = null, platform = null;
-let config = { port: 9341 }, diagnostic = '准备连接', quitting = false, quitReady = false, pending = null, configInvalid = false;
+let config = policy.settings({}), diagnostic = '准备连接', quitting = false, quitReady = false, pending = null, configInvalid = false;
 const configFile = path.join(home, 'desktop-settings.json');
-const state = () => ({ version: app.getVersion(), platform: process.platform, arch: process.arch, settings: { ...config }, busy: !!pending, running: !!runtime, ...(runtime?.status() ?? { diagnostic, targets: 0 }) });
+const state = () => ({ version: app.getVersion(), platform: process.platform, arch: process.arch, settings: { ...config, effectiveSessionRoot: effectiveSessionRoot(config) }, busy: !!pending, running: !!runtime, ...(runtime?.status() ?? { diagnostic, targets: 0 }) });
 function protect(window) {
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('will-navigate', event => event.preventDefault());
@@ -75,10 +75,10 @@ async function action(op, value) {
     }
     case 'clear-workspace': delete config.workspace; await saveConfig(); await startMonitoring(); break;
     case 'choose-session-root': {
-      const result = await dialog.showOpenDialog(control, { title: '选择 Codex 会话目录（可随时停用）', defaultPath: config.sessionRoot ?? path.join(os.homedir(), '.codex'), properties: ['openDirectory'] });
-      if (!result.canceled && result.filePaths[0]) { config.sessionRoot = result.filePaths[0]; await saveConfig(); await startMonitoring(); } break;
+      const result = await dialog.showOpenDialog(control, { title: '选择 Codex 会话目录（可随时停用）', defaultPath: config.sessionRoot ?? effectiveSessionRoot(config) ?? path.join(os.homedir(), '.codex'), properties: ['openDirectory'] });
+      if (!result.canceled && result.filePaths[0]) { config.sessionRoot = result.filePaths[0]; config.sessionScanEnabled = true; await saveConfig(); await startMonitoring(); } break;
     }
-    case 'clear-session-root': delete config.sessionRoot; await saveConfig(); await startMonitoring(); break;
+    case 'clear-session-root': config.sessionScanEnabled = false; await saveConfig(); await startMonitoring(); break;
     case 'launch': {
       const result = await dialog.showMessageBox(control, { type: 'warning', title: '调试启动 Codex', message: '仅在 Codex 已正常退出时启动。', detail: '将开放仅本机可访问的 CDP 端口。本机程序可通过它访问应用页面；不要运行不可信的调试工具。不会强退或重启已有 Codex。停止 Task Lens 不会关闭此端口。', buttons: ['取消', '启动 Codex'], defaultId: 0, cancelId: 0 });
       if (result.response === 1) { const appInfo = await platform.discoverApp(config.appPath); await platform.launchCodex(appInfo, config.port, true); await startMonitoring(); } break;

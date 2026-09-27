@@ -8,6 +8,8 @@ module.exports = async ({ control, protect, home }) => {
   const result = { passed: false, kind: 'packaged-application', platform: process.platform, arch: process.arch, version: app.getVersion(), electron: process.versions.electron, node: process.versions.node, commit: process.env.GITHUB_SHA || 'local', noExternalNodePath: !process.env.PATH || process.env.PATH.endsWith('empty-bin') };
   const response = await control.webContents.executeJavaScript('window.taskLens.state()');
   assert(response.ok && response.state.version === app.getVersion());
+  assert.equal(response.state.settings.sessionScanEnabled, true);
+  assert(path.isAbsolute(response.state.settings.effectiveSessionRoot));
   assert.equal(await control.webContents.executeJavaScript('typeof require'), 'undefined');
   assert.equal(await control.webContents.executeJavaScript("typeof window.taskLens.chooseSessionRoot + ':' + typeof window.taskLens.clearSessionRoot"), 'function:function');
   assert.equal(await control.webContents.executeJavaScript("!!document.querySelector('#session-root') && !!document.querySelector('#choose-session-root') && !!document.querySelector('#clear-session-root')"), true);
