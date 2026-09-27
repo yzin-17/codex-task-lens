@@ -19,6 +19,12 @@
 
 ## 直接运行
 
-- macOS ZIP 内直接包含 `Codex Task Lens.app`；无需安装器。CI 与用户 Mac 均直接运行 App 成功。
+- macOS ZIP 内直接包含 `Codex Task Lens.app`；无需安装器。CI 与用户 Mac 均直接运行 App 成功；发布后用户 Mac 切到本地 `alpha.7` App，日志再次确认 `CDP 已连接`，Codex 未重启。
 - Windows ZIP 内直接包含 `Codex Task Lens.vbs`；CI 使用 `cscript.exe` 调用同一入口完成 smoke，普通双击使用 `wscript` 隐藏启动。
 - 两个平台都不复制程序文件、不创建快捷方式；绑定与设置仍独立保存在 CodexTaskLens 用户数据目录。
+## Release
+
+- `v0.1.0-alpha.7` tag workflow `36309738200` 全部通过，Release ID `397586790`。
+- macOS ZIP：`238,469` bytes，SHA-256 `ae16e2d4a105dc90d2a2998d5fa8d2116d2e0979c90aa3d98b579ac9ad8386e7`。
+- Windows ZIP：`235,519` bytes，SHA-256 `6d6ea206478ac375af939d8aba6cccbb4a658193071ec2683e927bf9aa7ff55d`。
+- 另含 macOS / Windows 两份 direct-launch smoke JSON 与 `SHA256SUMS`；无 Electron DMG / EXE / 大 ZIP。

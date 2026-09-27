@@ -14,4 +14,4 @@
 - [x] A10：默认发行拆成 `-mac.zip` 与 `-windows.zip`，不再使用单一跨平台 `-agent.zip`。
 - [x] A11：去掉安装器与快捷方式创建流程；macOS ZIP 直接提供 `.app`，Windows ZIP 直接提供隐藏 `.vbs` 启动器。
 - [x] G3：实现提交 `4f4c595`：Agent workflow `36309267794` 的 Node 22.20 / 24 验证、macOS `.app`、Windows `.vbs` 直接启动 smoke 全部通过；主 CI `36309267790` 的 Ubuntu/macOS 回归通过。用户 Mac 另以解压后的 `.app` 直接连接 Codex `26.924.22138` / CDP 9341 成功。
-- [ ] G4：发布下一版分平台轻量 Release，核对两份 ZIP、smoke 与 SHA256。
+- [x] G4：`v0.1.0-alpha.7` 已发布；tag workflow `36309738200` 全部通过。Release `397586790` 含 macOS ZIP `238,469` bytes、Windows ZIP `235,519` bytes、两份 direct-launch smoke 与 `SHA256SUMS`；macOS SHA-256 `ae16e2d4a105dc90d2a2998d5fa8d2116d2e0979c90aa3d98b579ac9ad8386e7`，Windows SHA-256 `6d6ea206478ac375af939d8aba6cccbb4a658193071ec2683e927bf9aa7ff55d`。
