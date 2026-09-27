@@ -14,7 +14,7 @@
 - ZIP：`245,276` bytes（约 240 KiB）。
 - 业务 Agent 核心资产：约 480 KiB，Release 不包含 Electron、Chromium、Node runtime 或 `node_modules`。
 
-最终 `alpha.6` ZIP 大小需在 tag workflow 后以 GitHub Release 附件再次记录。
+正式 `v0.1.0-alpha.6` Release ZIP 为 `239,618` bytes（约 234 KiB），SHA-256 为 `b86639923e5eb195565acedcc8c5440c889bddfe5716a67b9b491c4e3c9efeb2`。
 
 ## 自动验证
 
@@ -31,6 +31,12 @@ Codex Desktop `26.924.22138`，CDP `127.0.0.1:9341`。
 - bundled CLI 成功连接现有 Codex CDP，并重新注入工具栏“进度”入口。
 - 使用与旧桌面版相同的 `~/Library/Application Support/CodexTaskLens/` 状态目录，未清空或重建用户绑定。
 - 验证未重启 Codex、未发送消息、未修改业务 Task 文档。
+
+## Release
+
+- Tag workflow `36308068069`：verify、macOS arm64 smoke、Windows x64 smoke、package、publish 全部成功。
+- Release `397577408` 目标提交 `fa0e9d56d4db23de7d65546dd873e38559f4d3cf`。
+- 附件共 4 个：`Codex-Task-Lens-0.1.0-alpha.6-agent.zip`、macOS/Windows 两份 agent smoke JSON、`SHA256SUMS`；无 Electron DMG/EXE/大 ZIP。
 
 ## 保留边界
 

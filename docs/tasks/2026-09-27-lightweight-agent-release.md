@@ -8,4 +8,4 @@
 - [x] A6：默认 Release workflow 改为 Agent 包；Electron workflow 降为手动兼容构建，不再随 tag 发布。
 - [x] A7：修复单文件 bundle 中 `standalone-runtime` 误判直接入口的问题；smoke 明确拒绝重复启动独立模式。
 - [x] G1：CI `36307522717` 的 Ubuntu/macOS 回归全部通过；轻量 Agent workflow `36307522751` 的 macOS/Windows 安装 smoke、package 均通过，安装后的 launcher 不依赖仓库 `node_modules`。用户 Mac 另以实际轻量 launcher 连接 Codex `26.924.22138`，只启动一个 CLI runtime 并成功注入。
-- [ ] G2：更新 README / Release 文档，版本升级并发布轻量版，核对 Release 附件与 SHA256。
+- [x] G2：`v0.1.0-alpha.6` 已发布；tag workflow `36308068069` 全部通过。Release `397577408` 仅含轻量 Agent ZIP（`239,618` bytes）、macOS/Windows smoke JSON 与 `SHA256SUMS`，无 Electron 大包；ZIP SHA-256 `b86639923e5eb195565acedcc8c5440c889bddfe5716a67b9b491c4e3c9efeb2`。
