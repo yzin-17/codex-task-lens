@@ -37,3 +37,20 @@ it('ignores symlink log files outside the source and refuses shell interpretatio
   for (const cmd of ['cd /work && cat a.md', 'cat $TASK.md', 'cat `whoami`.md', 'cat a.md; touch marker']) expect(extractPaths({ type: 'response_item', payload: { type: 'function_call', name: 'exec_command', arguments: JSON.stringify({ cmd }) } }, { cwd: '/work' })).toEqual([]);
   expect(extractPaths({ type: 'response_item', payload: { type: 'function_call', name: 'exec_command', arguments: JSON.stringify({ cmd: 'cat "a b.md"', workdir: '/work' }) } }, {})).toHaveLength(1); records.close();
 });
+
+it('extracts Markdown paths from current Codex custom exec wrappers without executing wrapper code', () => {
+  const input = [
+    'text(await tools.exec_command({cmd:"rtk proxy cat docs/specs/a.md docs/tasks/a.md"}));',
+    'text(await tools.exec_command({cmd:"rtk proxy rg -n \\"S08|S09\\" docs/tasks/b.md"}));',
+    'text(await tools.apply_patch("*** Begin Patch\\n*** Update File: /work/docs/tasks/c.md\\n*** End Patch"));',
+  ].join('\\n');
+  const paths = extractPaths({ type: 'response_item', payload: { type: 'custom_tool_call', name: 'exec', input } }, { cwd: '/work' });
+  expect(paths).toEqual([
+    { path: 'docs/specs/a.md', baseDirectory: '/work', source: '会话工具命令' },
+    { path: 'docs/tasks/a.md', baseDirectory: '/work', source: '会话工具命令' },
+    { path: 'docs/tasks/b.md', baseDirectory: '/work', source: '会话工具命令' },
+    { path: '/work/docs/tasks/c.md', baseDirectory: '/work', source: '会话文件操作' },
+  ]);
+  const unsafe = 'text(await tools.exec_command({cmd:"cat $TASK.md *.md"})); const note="docs/tasks/not-a-command.md";';
+  expect(extractPaths({ type: 'response_item', payload: { type: 'custom_tool_call', name: 'exec', input: unsafe } }, { cwd: '/work' })).toEqual([]);
+});

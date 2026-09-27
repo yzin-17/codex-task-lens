@@ -11,3 +11,5 @@
 - [x] S6：桌面会话扫描改为默认启用 `${HOME}/.codex`；旧配置未声明状态时迁移为启用，明确停用后以 `sessionScanEnabled=false` 持久保持关闭。
 - [x] S7：候选空状态的“授权项目目录”改为明确按钮；点击切换目录模式、滚动并聚焦路径输入，不自动授权。
 - [x] G4：默认启用／持久停用与明显授权按钮已完成：实现 CI `36300566499`、Desktop packages `36300566477` 全通过；用户 Mac `26.924.22138` 已以 `~/.codex` 会话扫描重载并验证 CTA；`v0.1.0-alpha.5` tag workflow `36300925631` 全通过，Release `397541033` 的 6 个桌面包、3 个 smoke JSON 与 `SHA256SUMS` 共 10 个附件已核对。
+- [x] S8：适配当前 Codex `custom_tool_call: exec` rollout 包装，解析其中 `tools.exec_command({cmd: ...})` 的 Markdown 字面路径和包装内 `apply_patch` 文件路径；不执行命令、不展开变量／glob。
+- [x] G5：当前真实对话 `01a0d8d3…` 已从 rollout 提取目标 `docs/tasks/2026-09-25-multi-source-adjustment-aware-backtest.md`；在显式授权 thesis-ledger 项目目录后候选为 `63/119`，来源含“会话工具命令／会话文件操作／目录扫描”。

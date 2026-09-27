@@ -13,6 +13,26 @@ function literalPath(value: unknown): string | null {
   const file = value.replace(/#L?\d+(?:-L?\d+)?$/, '');
   return /\.md$/i.test(file) && !file.startsWith('~') ? file : null;
 }
+function quotedFields(input: string, key: string): string[] {
+  const values: string[] = [], pattern = new RegExp('\\b' + key + '\\s*:\\s*("(?:\\\\.|[^"\\\\])*")', 'g');
+  for (const match of input.matchAll(pattern)) {
+    try { const value = JSON.parse(match[1]!); if (typeof value === 'string') values.push(value); } catch { /* malformed wrapper: ignore */ }
+  }
+  return values;
+}
+function commandMarkdownPaths(command: string): string[] {
+  if (command.length > 65536 || command.includes('\0')) return [];
+  const paths: string[] = [];
+  for (const token of command.match(/"(?:\\.|[^"\\])*"|'[^']*'|[^\s]+/g) ?? []) {
+    let value = token;
+    if (value.startsWith('"') && value.endsWith('"')) {
+      try { value = JSON.parse(value); } catch { continue; }
+    } else if (value.startsWith("'") && value.endsWith("'")) value = value.slice(1, -1);
+    value = value.replace(/^[(),]+|[(),]+$/g, '');
+    if (literalPath(value)) paths.push(value);
+  }
+  return paths;
+}
 export function extractPaths(event: unknown, state: { cwd?: string }): SessionHints['paths'] {
   const row = record(event), payload = record(row.payload), result: SessionHints['paths'] = [];
   const add = (value: unknown, source: string, cwd = state.cwd) => {
@@ -28,6 +48,10 @@ export function extractPaths(event: unknown, state: { cwd?: string }): SessionHi
   if (row.type === 'response_item' && payload.type === 'message' && Array.isArray(payload.content)) for (const part of payload.content) fromText(record(part).text);
   if (row.type === 'response_item' && payload.type === 'custom_tool_call' && /(?:^|\.)apply_patch$/.test(String(payload.name)) && typeof payload.input === 'string') {
     for (const match of payload.input.matchAll(/^\*\*\* (?:Add|Update|Delete) File: (.+\.md)\r?$/gm)) add(match[1], '会话文件操作');
+  }
+  if (row.type === 'response_item' && payload.type === 'custom_tool_call' && payload.name === 'exec' && typeof payload.input === 'string') {
+    for (const command of quotedFields(payload.input, 'cmd')) for (const file of commandMarkdownPaths(command)) add(file, '会话工具命令');
+    for (const match of payload.input.matchAll(/\*\*\* (?:Add|Update|Delete) File: ([^\\\r\n]+\.md)/g)) add(match[1], '会话文件操作');
   }
   if (row.type === 'response_item' && payload.type === 'function_call' && /^(?:functions\.)?(?:exec_command|shell_command)$/.test(String(payload.name))) {
     let args: Record<string, unknown>; try { args = record(JSON.parse(String(payload.arguments))); } catch { return result; }
