@@ -10,7 +10,7 @@ on:
       - 'scripts/build-agent.mjs'
       - 'scripts/package-agent.mjs'
       - 'scripts/smoke-agent-package.mjs'
-      - 'scripts/agent-release-checksums.mjs'
+      - 'scripts/validate-agent-release.mjs'
       - 'package.json'
       - 'pnpm-lock.yaml'
       - '.github/workflows/agent-release.yml'
@@ -91,7 +91,7 @@ jobs:
           pattern: agent-*
           path: artifacts
           merge-multiple: true
-      - run: node scripts/agent-release-checksums.mjs artifacts
+      - run: node scripts/validate-agent-release.mjs artifacts
       - name: Publish lightweight prerelease
         env:
           GH_TOKEN: ${{ github.token }}
@@ -100,4 +100,4 @@ jobs:
           version=$(node -p 'JSON.parse(require("fs").readFileSync("package.json")).version')
           test "$GITHUB_REF_NAME" = "v$version"
           if gh release view "v$version" >/dev/null 2>&1; then echo 'Release exists; refusing to overwrite assets'; exit 1; fi
-          gh release create "v$version" artifacts/* --target "$GITHUB_SHA" --prerelease --title "Codex Task Lens $version" --notes-file "docs/releases/$version.md"
+          gh release create "v$version" artifacts/Codex-Task-Lens-*.zip --target "$GITHUB_SHA" --prerelease --title "Codex Task Lens $version" --notes-file "docs/releases/$version.md"
