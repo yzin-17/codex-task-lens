@@ -16,6 +16,11 @@
 - `file` / `lipo` 确认 App launcher 同时包含 `x86_64` 与 `arm64`。
 - `Info.plist` 使用 `CFBundleIconFile=AppIcon`，包内 `AppIcon.icns` 与源 PNG 均存在。
 
+## CI
+
+- 主 CI `36312619555`：Ubuntu 与 macOS 全部通过。
+- Agent workflow `36312619540`：Node 22.20 / 24 验证、macOS Universal App package/direct-launch smoke、Windows package/direct-launch smoke 全部通过。
+
 ## 用户 Mac 真实双击验证
 
 Codex Desktop `26.924.22138`，CDP `127.0.0.1:9341`。

@@ -18,5 +18,5 @@
 - [x] A12：彻底删除 Electron 控制台、electron-builder、tools/desktop、desktop tests、legacy workflow 与旧桌面发行文档；仓库只保留轻量 Agent。
 - [x] A13：macOS `.app` 改为一次性启动壳：后台 Agent 脱离后 App 立即退出；重复双击会给出“已在运行”提示并切回 Codex。Codex 已普通运行但无 CDP 时显示明确退出/重启说明。
 - [x] A14：新增 Task Lens 专用图标生成器，macOS 打包生成并嵌入 `AppIcon.icns`；Windows 包附同源 PNG 资源。
-- [ ] G5：Node >=22.20 约束、图标、双击生命周期、Electron 清理经完整 CI / macOS 真机验证。
+- [x] G5：实现提交 `9a6adc3`：CI `36312619555` 的 Ubuntu/macOS 完整回归通过；Agent workflow `36312619540` 的 Node 22.20/24 验证、macOS Universal App 与 Windows 直接启动 smoke 全部通过。用户 Mac 真机验证 Codex PID `31181` 连续两次双击均不变，Agent lock PID `49095` 不变，App 原生入口完成后进程数均为 0，最终 `host=true`。
 - [ ] G6：发布下一版并核对分平台 ZIP、direct-launch smoke、SHA256。
