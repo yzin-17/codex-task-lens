@@ -13,5 +13,5 @@
 - [x] A9：默认会话目录优先读取绝对路径 `CODEX_HOME`，否则使用用户 Home 下 `.codex`；Windows 即通常的 `%USERPROFILE%\.codex`。
 - [x] A10：默认发行拆成 `-mac.zip` 与 `-windows.zip`，不再使用单一跨平台 `-agent.zip`。
 - [x] A11：去掉安装器与快捷方式创建流程；macOS ZIP 直接提供 `.app`，Windows ZIP 直接提供隐藏 `.vbs` 启动器。
-- [ ] G3：Node 22.20 / 24 CI、macOS `.app` 与 Windows `.vbs` 直接启动 smoke 全部通过。
+- [x] G3：实现提交 `4f4c595`：Agent workflow `36309267794` 的 Node 22.20 / 24 验证、macOS `.app`、Windows `.vbs` 直接启动 smoke 全部通过；主 CI `36309267790` 的 Ubuntu/macOS 回归通过。用户 Mac 另以解压后的 `.app` 直接连接 Codex `26.924.22138` / CDP 9341 成功。
 - [ ] G4：发布下一版分平台轻量 Release，核对两份 ZIP、smoke 与 SHA256。
