@@ -4,16 +4,16 @@
 
 ## 下载轻量版
 
-从 [GitHub Releases](https://github.com/yzin-17/codex-task-lens/releases) 下载 `Codex-Task-Lens-<version>-agent.zip`。默认发行版**不再捆绑 Electron / Chromium / Node runtime**，需要本机已有 **Node.js 24.x**；不需要 pnpm、Git 或源码构建。
+从 [GitHub Releases](https://github.com/yzin-17/codex-task-lens/releases) 按系统下载：macOS 使用 `Codex-Task-Lens-<version>-mac.zip`，Windows 使用 `Codex-Task-Lens-<version>-windows.zip`。默认发行版**不捆绑 Electron / Chromium / Node runtime**，需要本机已有 **Node.js 22.20+ 或 24.x**；不需要 pnpm、Git 或源码构建。
 
-| 系统 | 安装 | 日常启动 |
-| --- | --- | --- |
-| macOS | 解压后双击 `install.command` | 双击 `~/Applications/Codex Task Lens.app` |
-| Windows | 解压后双击 `install.cmd` | 桌面或开始菜单的 `Codex Task Lens` |
+| 系统 | 解压后直接运行 |
+| --- | --- |
+| macOS | 双击 `Codex Task Lens.app` |
+| Windows | 双击 `Codex Task Lens.vbs` |
 
-轻量版把后台 Agent 作为 Node 单文件 bundle，所有主要界面仍通过 CDP 注入 Codex。首次安装脚本只负责检测 Node、复制约 1 MiB 以内的运行文件并创建双击入口；不会安装第二套 Chromium。
+没有安装步骤，也不会额外创建 App 或快捷方式。解压目录本身就是可运行程序；后台 Agent 是单文件 Node bundle，主要界面继续通过 CDP 注入 Codex。
 
-启动入口默认使用本机回环端口 9341，并默认启用 `~/.codex` 会话扫描。已有 `desktop-settings.json` 中的端口、应用路径、项目目录、会话目录及显式“停用扫描”设置继续复用。若 Codex 已普通启动且没有 CDP，Task Lens 不会强制退出或重启它；正常退出 Codex 后再从 Task Lens 入口启动即可。
+启动入口默认使用本机回环端口 9341，并默认启用 Codex 会话扫描：若存在绝对路径 `CODEX_HOME` 则优先使用，否则读取当前用户 Home 下的 `.codex`（Windows 通常是 `%USERPROFILE%\.codex`）。已有 `desktop-settings.json` 中的端口、应用路径、项目目录、会话目录及显式“停用扫描”设置继续复用。若 Codex 已普通启动且没有 CDP，Task Lens 不会强制退出或重启它；正常退出 Codex 后再从 Task Lens 入口启动即可。
 
 旧 Electron 桌面控制台源码仍保留用于兼容和手动构建，但不再随版本标签默认发布。旧绑定和状态目录继续复用，不需要重新绑定文档。
 
@@ -47,7 +47,7 @@ pnpm run doctor -- --cdp-port 9341
 pnpm start -- --cdp-port 9341 --workspace "$PWD"
 ```
 
-需要 Node.js 24.x，pnpm 版本由仓库固定。`--workspace` 是对该目录 Markdown 的明确授权；不传时可在面板选择具体文件。Mac 可用 `--app "/实际路径/Codex.app"` 指定应用；不同 profile 使用不同且固定的 `--source-id`，不要随端口变化修改。
+运行轻量 Agent 支持 Node.js 22.20+ 或 24.x；源码构建与 CI 的 pnpm 版本由仓库固定。`--workspace` 是对该目录 Markdown 的明确授权；不传时可在面板选择具体文件。Mac 可用 `--app "/实际路径/Codex.app"` 指定应用；不同 profile 使用不同且固定的 `--source-id`，不要随端口变化修改。
 
 轻量 Agent 默认启用本地会话扫描，并复用 `desktop-settings.json` 中的自定义会话目录或显式停用状态。源码 CLI 仍保留显式参数：`--session-root "${CODEX_HOME:-$HOME/.codex}" --allow-session-read`。日志缺失、未知格式和路径歧义时仍可手动绑定；不猜最近活动会话就是当前页面。
 

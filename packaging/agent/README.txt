@@ -1,15 +1,18 @@
 Codex Task Lens · Lightweight Agent
 
-这是默认发行版，不包含 Electron / Chromium / Node 运行时。
-需要：Node.js 24.x，以及已安装的 Codex Desktop。
+默认发行版不包含 Electron / Chromium / Node runtime。
+运行要求：Node.js 22.20+ 或 24.x，以及已安装的 Codex Desktop。
 
-macOS：双击 install.command。安装后从 ~/Applications/Codex Task Lens.app 启动。
-Windows：双击 install.cmd。安装后从桌面或开始菜单的 Codex Task Lens 启动。
+macOS：解压后直接双击“Codex Task Lens.app”。
+Windows：解压后直接双击“Codex Task Lens.vbs”。
 
-启动器会复用 9341 CDP 端口：若 Codex 尚未运行，会以仅回环地址的调试端口启动；若 Codex 已以 CDP 运行，则直接连接。
-如果 Codex 已经以普通模式运行，Task Lens 不会强制退出或重启它；请正常退出后再从 Task Lens 入口启动。
+无需安装步骤、无需创建快捷方式。整个解压目录就是可运行程序；删除该目录即可删除程序本体。
+Task Lens 的绑定与设置独立保存在用户数据目录中，不会跟随程序目录删除。
 
-默认启用 ~/.codex 会话扫描，只读取 sessions / archived_sessions 中的路径线索，不读取 auth.json。
-对话中明确出现的真实 Task 文档可直接作为候选；点击“添加”才授权读取该文件，最终仍需“确认绑定”。
+启动器复用 9341 CDP 端口：Codex 未运行时会以仅回环地址的调试端口启动；已有可信 CDP 时直接连接。
+如果 Codex 已普通启动但没有 CDP，Task Lens 不会强制退出或重启它；请正常退出 Codex 后再双击 Task Lens。
 
-状态和绑定数据保存在 CodexTaskLens 用户数据目录中，升级不会删除现有绑定。
+会话扫描默认启用。若设置了 CODEX_HOME，则优先读取该目录；否则读取用户 Home 下的 .codex。
+只读取 sessions / archived_sessions 的路径线索，不读取 auth.json。
+
+对话中明确出现的真实 Task 文档会直接作为候选；点击“添加”才授权读取该文件，最后仍需“确认绑定”。

@@ -3,7 +3,8 @@ const os = require('node:os');
 
 function effectiveSessionRoot(config) {
   if (config.sessionScanEnabled === false) return undefined;
-  return config.sessionRoot ?? path.join(os.homedir(), '.codex');
+  const codexHome = typeof process.env.CODEX_HOME === 'string' && path.isAbsolute(process.env.CODEX_HOME) ? process.env.CODEX_HOME : undefined;
+  return config.sessionRoot ?? codexHome ?? path.join(os.homedir(), '.codex');
 }
 function monitoringOptions(config, dataDirectory, openFile) {
   const sessionRoot = effectiveSessionRoot(config);

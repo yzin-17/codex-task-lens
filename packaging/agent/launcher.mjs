@@ -5,6 +5,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
+const [nodeMajor, nodeMinor] = process.versions.node.split('.').map(Number);
+if (!((nodeMajor === 22 && nodeMinor >= 20) || nodeMajor === 24)) {
+  console.error(`Codex Task Lens 需要 Node.js 22.20+ 或 24.x；当前为 ${process.version}`);
+  process.exit(1);
+}
 const state = process.platform === 'darwin'
   ? path.join(homedir(), 'Library/Application Support/CodexTaskLens')
   : process.platform === 'win32'
@@ -30,7 +35,7 @@ async function buildArgs() {
   if (appPath) args.push('--app', appPath);
   if (workspace) args.push('--workspace', workspace);
   if (value.sessionScanEnabled !== false) {
-    const sessionRoot = absolute(value.sessionRoot) ?? path.join(homedir(), '.codex');
+    const sessionRoot = absolute(value.sessionRoot) ?? absolute(process.env.CODEX_HOME) ?? path.join(homedir(), '.codex');
     args.push('--session-root', sessionRoot, '--allow-session-read');
   }
   return { args, port, sessionScanEnabled: value.sessionScanEnabled !== false };
