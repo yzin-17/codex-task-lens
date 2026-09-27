@@ -1,4 +1,4 @@
-import { selectMarkdownFiles } from '../../platform/macos/select-markdown.js';
+import { selectMarkdownFiles } from '../../platform/select-markdown.js';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { randomBytes,timingSafeEqual } from 'node:crypto';
 import { readFile,realpath,stat } from 'node:fs/promises';

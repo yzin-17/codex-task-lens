@@ -3,7 +3,7 @@ import path from 'node:path';
 import { LensError } from '../contracts/index.js';
 import { startStandalone } from '../host/standalone-runtime.js';
 import { startCodex } from '../host/codex-runtime.js';
-import { discoverApp, verifyEndpoint, validPort } from '../platform/macos/codex-app.js';
+import { discoverApp, verifyEndpoint, validPort } from '../platform/codex-app.js';
 export type CliOptions = { standalone: boolean; doctor: boolean; help: boolean; cdpPort?: number; port?: number; appPath?: string; dataDirectory?: string; sessionRoot?: string; allowSessionRead: boolean; sourceId: string; workspace?: string; launch: boolean; openBrowser: boolean };
 export function parseArgs(args: string[]): CliOptions {
   const options: CliOptions = { standalone: false, doctor: false, help: false, allowSessionRead: false, sourceId: 'codex-default', launch: false, openBrowser: process.platform === 'darwin' };

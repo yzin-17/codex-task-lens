@@ -1,4 +1,4 @@
-import { selectMarkdownFiles } from '../../platform/macos/select-markdown.js';
+import { selectMarkdownFiles } from '../../platform/select-markdown.js';
 import { randomBytes } from 'node:crypto';
 import { LensError, monitorKey, type MonitorRef, type Request } from '../../contracts/index.js';
 import { parsePanes, parseEmbeddedRequest, type EmbeddedConfiguration, type EmbeddedEvent, type PaneIdentity } from '../../contracts/embedded.js';

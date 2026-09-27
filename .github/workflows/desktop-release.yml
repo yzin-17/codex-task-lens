@@ -1,8 +1,6 @@
-name: Desktop packages
+name: Legacy Electron packages
 on:
-  push:
-    branches: ['main']
-    tags: ['v*']
+  workflow_dispatch:
   pull_request:
     paths: ['desktop/**', 'tools/desktop/**', 'electron-builder.cjs', '.github/workflows/desktop-release.yml']
 permissions:
@@ -79,28 +77,3 @@ jobs:
             release/builder-debug.yml
             release/builder-effective-config.yaml
           retention-days: 7
-  publish:
-    needs: [verify, package]
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: desktop-*
-          path: artifacts
-          merge-multiple: true
-      - run: node scripts/release-checksums.mjs artifacts
-      - name: Publish only complete, tested prerelease assets
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          version=$(node -p 'JSON.parse(require("fs").readFileSync("package.json")).version')
-          if [[ "$GITHUB_REF" == refs/tags/* && "$GITHUB_REF_NAME" != "v$version" ]]; then exit 1; fi
-          if gh release view "v$version" >/dev/null 2>&1; then echo 'Release exists; refusing to overwrite assets'; exit 1; fi
-          gh release create "v$version" artifacts/* --target "$GITHUB_SHA" --prerelease --title "Codex Task Lens $version" --notes-file "docs/releases/$version.md"

@@ -1,0 +1,122 @@
+name: Lightweight agent packages
+on:
+  push:
+    branches: ['main']
+    tags: ['v*']
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'packaging/agent/**'
+      - 'scripts/build-agent.mjs'
+      - 'scripts/package-agent.mjs'
+      - 'scripts/smoke-agent-package.mjs'
+      - 'scripts/agent-release-checksums.mjs'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/agent-release.yml'
+permissions:
+  contents: read
+concurrency:
+  group: agent-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint && pnpm typecheck && pnpm test
+      - run: pnpm package:agent
+      - run: pnpm test:agent
+
+  smoke:
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            report: darwin-arm64
+          - os: windows-latest
+            report: win32-x64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm package:agent
+      - name: Smoke installed lightweight agent
+        env:
+          TASK_LENS_SMOKE_OUTPUT: release/agent-smoke-${{ matrix.report }}.json
+        run: pnpm test:agent
+      - uses: actions/upload-artifact@v4
+        with:
+          name: agent-smoke-${{ matrix.report }}
+          path: release/agent-smoke-${{ matrix.report }}.json
+          if-no-files-found: error
+          retention-days: 14
+
+  package:
+    needs: verify
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm package:agent
+      - name: Enforce lightweight archive size
+        shell: bash
+        run: |
+          file=$(find release -maxdepth 1 -name 'Codex-Task-Lens-*-agent.zip' -print -quit)
+          test -n "$file"
+          test "$(stat -f %z "$file")" -lt 5242880
+      - uses: actions/upload-artifact@v4
+        with:
+          name: agent-package
+          path: release/Codex-Task-Lens-*-agent.zip
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    needs: [verify, smoke, package]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: agent-*
+          path: artifacts
+          merge-multiple: true
+      - run: node scripts/agent-release-checksums.mjs artifacts
+      - name: Publish lightweight prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          version=$(node -p 'JSON.parse(require("fs").readFileSync("package.json")).version')
+          test "$GITHUB_REF_NAME" = "v$version"
+          if gh release view "v$version" >/dev/null 2>&1; then echo 'Release exists; refusing to overwrite assets'; exit 1; fi
+          gh release create "v$version" artifacts/* --target "$GITHUB_SHA" --prerelease --title "Codex Task Lens $version" --notes-file "docs/releases/$version.md"
