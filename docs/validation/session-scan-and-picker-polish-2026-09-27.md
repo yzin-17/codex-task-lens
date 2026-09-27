@@ -17,6 +17,10 @@ Codex Desktop `26.924.22138`，CDP 9341。验证前确认 Task Lens 没有未确
 - 章节范围菜单：实际 `:popover-open=true`，菜单底部 1230，固定确认底栏顶部 1292.5，菜单完整位于底栏之上。
 - 测试后变更摘要为“尚无更改”；未选择章节、未保存绑定、未修改 Task 文件。
 
+## Release
+
+`v0.1.0-alpha.4` 由提交 `7e16e4a1be6921316b89d192e3d121ac21b09ddf` 发布。Tag workflow `36298718724` 的 verify、macOS arm64、macOS x64、Windows x64 package 和 publish 均成功。Release ID `397529927`，已核对 6 个桌面包、3 个 packaged smoke JSON 与 `SHA256SUMS` 共 10 个附件。
+
 ## 保留边界
 
 会话扫描在桌面控制台中默认关闭，仅在用户选择会话目录后启用。读取范围仍由 SessionRecords 限制为 `sessions/` 与 `archived_sessions/`；Task 文档必须另行授权。
