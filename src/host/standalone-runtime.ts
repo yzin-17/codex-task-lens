@@ -38,4 +38,4 @@ async function main() {
   const stop = () => { process.off('SIGINT', stop); process.off('SIGTERM', stop); void runtime.close().catch(() => { console.error('关闭本地服务失败'); process.exitCode = 1; }); };
   process.once('SIGINT', stop); process.once('SIGTERM', stop);
 }
-if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) void main().catch(error => { console.error(error instanceof Error ? error.message : 'Task Lens 启动失败'); process.exitCode = 1; });
+if (process.argv[1] && path.basename(process.argv[1]) === 'standalone-runtime.js' && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) void main().catch(error => { console.error(error instanceof Error ? error.message : 'Task Lens 启动失败'); process.exitCode = 1; });

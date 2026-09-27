@@ -17,7 +17,7 @@ async function run(program, args, env = {}, cwd = root) {
   });
 }
 const help = await run(process.execPath, [cli, '--help']);
-assert.equal(help.code, 0, help.stderr); assert.match(help.stdout, /Codex Task Lens/);
+assert.equal(help.code, 0, help.stderr); assert.match(help.stdout, /Codex Task Lens/); assert.doesNotMatch(help.stdout, /Codex Task Lens 独立模式/);
 const temporaryHome = await mkdtemp(path.join(tmpdir(), 'task-lens-agent-smoke-'));
 const env = { TASK_LENS_AGENT_SMOKE: '1', HOME: temporaryHome, USERPROFILE: temporaryHome, APPDATA: path.join(temporaryHome, 'AppData/Roaming') };
 await mkdir(env.APPDATA, { recursive: true });
