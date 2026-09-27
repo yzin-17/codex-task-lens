@@ -22,6 +22,10 @@ Codex Desktop `26.924.22138` 保持运行，CDP 9341 不变。仅停止旧 Task 
 - 本地绝对路径输入框获得焦点。
 - 变更摘要仍为“选择并预览后确认”，没有提交绑定或修改 Task 文件。
 
+## Release
+
+`v0.1.0-alpha.5` 由提交 `c5cfec6a15af866ef579182d4c882101ad0de799` 发布。Tag workflow `36300925631` 的 verify、macOS arm64、macOS x64、Windows x64 package 和 publish 全部成功。Release ID `397541033`；已核对 6 个桌面发行包、3 个 packaged smoke JSON 与 `SHA256SUMS` 共 10 个附件。
+
 ## 边界
 
 桌面版默认扫描会话记录，不等于默认读取任何 Task 文档；候选文件仍必须处于单独授权的文件/项目目录范围。用户明确停用后持久保持关闭。
