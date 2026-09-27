@@ -32,3 +32,10 @@ Codex Desktop `26.924.22138`，CDP `127.0.0.1:9341`。
 `renderer ack → CLI SIGTERM → runtime.close() → CDP bridge / target lock / SessionRecords / local server / file streams 关闭 → CLI 退出 → supervisor 退出 → agent.lock 删除`。
 
 Codex 自身不属于 Task Lens 生命周期，因此不会被退出动作关闭。
+
+## Release
+
+- `v0.1.0-alpha.9` tag workflow `36315980638` 全部成功，Release ID `397623630`。
+- macOS ZIP `627,012` bytes，SHA-256 `b547704360fee71c37aa6d46708c0afe0b6b963653ccafced9cb6fdca3852097`。
+- Windows ZIP `303,761` bytes，SHA-256 `b4fab0284883c70280fb742464ace44d2f19bd51743de93f7455c9a76344e471`。
+- 用户 Mac 已切到本地 `alpha.9` App：Codex PID 仍为 `31181`，页面验证 `host=true`，Tab 包含“设置”。
