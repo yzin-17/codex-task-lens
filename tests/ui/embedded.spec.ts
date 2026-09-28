@@ -45,6 +45,27 @@ async function bind(page: Page, file: string) {
   await page.getByRole('button', { name: '预览文件', exact: true }).click();
   await page.getByRole('button', { name: '确认绑定', exact: true }).click();
 }
+test('progress entry stays visually last when Codex appends toolbar controls later', async () => {
+  const f = await fixture(); try {
+    const toolbar = f.page.locator('[data-composer-toolbar]'), host = f.page.locator('[data-task-lens-host]');
+    await expect(host).toHaveCSS('order', '999');
+    await toolbar.evaluate(node => { const late = document.createElement('button'); late.id = 'late-permission'; late.textContent = '权限'; node.append(late); });
+    const lateBox = await f.page.locator('#late-permission').boundingBox(), hostBox = await host.boundingBox();
+    expect(lateBox).not.toBeNull(); expect(hostBox).not.toBeNull(); expect(hostBox!.x).toBeGreaterThan(lateBox!.x);
+  } finally { await f.close(); }
+});
+test('popover stays hidden until anchored and clears positioning state on close', async () => {
+  const f = await fixture(); try {
+    const popup = f.page.locator('.lens-embedded-shell');
+    const initial = await popup.evaluate(node => { (node as HTMLElement).showPopover(); return { visibility: getComputedStyle(node).visibility, positioned: node.getAttribute('data-positioned') }; });
+    expect(initial).toEqual({ visibility: 'hidden', positioned: null });
+    await expect(popup).toHaveAttribute('data-positioned', 'true'); await expect(popup).toBeVisible();
+    const anchored = await popup.evaluate(node => ({ left: (node as HTMLElement).style.left, top: (node as HTMLElement).style.top }));
+    expect(anchored.left).not.toBe(''); expect(anchored.top).not.toBe('');
+    await popup.evaluate(node => (node as HTMLElement).hidePopover());
+    await expect(popup).not.toHaveAttribute('data-positioned');
+  } finally { await f.close(); }
+});
 test('settings requires explicit confirmation before requesting graceful Task Lens shutdown', async () => {
   const f = await fixture(); try {
     await expand(f.page);

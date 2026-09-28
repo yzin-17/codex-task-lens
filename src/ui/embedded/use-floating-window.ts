@@ -17,9 +17,10 @@ export function useFloatingWindow({ popup, trigger, open, bounds }: Options) {
     const before = (event: Event) => {
       cancelAnimationFrame(frame);
       if ((event as ToggleEvent).newState === 'closed') {
-        finish(); position.current = null;
+        finish(); position.current = null; node.removeAttribute('data-positioned');
         for (const property of ['left', 'top', 'width', 'max-height']) node.style.removeProperty(property);
       } else {
+        node.removeAttribute('data-positioned');
         frame = requestAnimationFrame(() => { if (node.matches(':popover-open')) placeRef.current(); });
       }
     };
@@ -42,7 +43,7 @@ export function useFloatingWindow({ popup, trigger, open, bounds }: Options) {
       const desired = preferred ?? position.current ?? { x: anchor.left, y: above ? anchor.top - size.height - 8 : anchor.bottom + 8 };
       const point = clampPosition(desired, size, area);
       if (preferred || position.current) position.current = point;
-      node.style.left = `${point.x}px`; node.style.top = `${point.y}px`;
+      node.style.left = `${point.x}px`; node.style.top = `${point.y}px`; node.dataset.positioned = 'true';
     };
     placeRef.current = place;
     const update = () => place(), observer = new ResizeObserver(update);
