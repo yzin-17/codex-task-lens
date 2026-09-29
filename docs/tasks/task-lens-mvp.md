@@ -76,6 +76,15 @@
   - 完成条件：按 AST 统计叶子，父分组不重复计数；支持大小写勾选、无 ID／重复标题、源行与详情、文档／章节范围、明确状态字段；零项、冲突和未知状态产生规定结果。
   - 验证方式：`pnpm exec vitest run tests/unit/task-parser.test.ts`；断言 fenced／缩进代码、引用、HTML、普通说明、同名标题、标题删除、CRLF／中文、多行条目和父子矛盾的精确结果。
 
+- [x] T21：兼容 GFM 表格首列复选框任务
+  - 执行记录：已完成；2026-09-29 定向测试 13 项通过、typecheck、lint 与 build 通过。对用户指定的表格任务文档只读解析得到 0/29，正文未写入仓库；详见 [T21 验证](../validation/task-lens-mvp/T21.md)。未重载运行中的 Task Lens。
+  - 覆盖断言：AC06 的表格行标记识别、完成状态、源位置、详情、章节范围与文档任务合计。
+  - 启动依赖：T04 已验证的解析与计数契约。
+  - 上下文入口：Spec §4.1–§4.2；`src/core/task-parser.ts`；`tests/unit/task-parser.test.ts`；`tests/integration/document-set.test.ts`。
+  - 执行边界：`src/core/task-parser.ts`、`tests/unit/task-parser.test.ts`、`tests/integration/document-set.test.ts`、本 Spec、本文与 `docs/validation/task-lens-mvp/T21.md`；不修改用户的 ThesisLedger 文档、授权逻辑、UI 或运行中的 Codex。
+  - 完成条件：跳过表头；识别首列以 `[ ]`／`[x]`／`[X]` 起始的数据行；每行最多生成一个独立任务；标题、勾选状态、整行原文、行号、章节范围及汇总计数正确；代码等既有排除边界仍生效。
+  - 验证方式：`pnpm exec vitest run tests/unit/task-parser.test.ts tests/integration/document-set.test.ts`、`pnpm typecheck`、`pnpm lint`；单元测试验证表格状态和边界，集成测试通过真实绑定快照验证表格任务进入合计。记录实际命令与结果。
+
 - [x] T05：实现授权文件与目录的路径校验
   - 执行记录：已完成；代码基线 06e8c234；真实命令、环境与断言见 [T05 验证](../validation/task-lens-mvp/T05.md)。
   - 覆盖断言：AC05 的 worktree 隔离、AC10 的文件访问边界。
@@ -250,7 +259,7 @@
 - [ ] R1：审计一期交付、验收证据与后续引用
   - 执行记录：未通过；等待 T02／I2 的真实环境证据，本次代码与文档检查不兑换为最终 Review。
   - 覆盖断言：AC12，以及 AC01–AC11 的覆盖完整性审计，不重复继承其实现责任。
-  - 启动依赖：T01–T20、I1、I2 已满足各自完成条件。
+  - 启动依赖：T01–T21、I1、I2 已满足各自完成条件。
   - 执行边界：本 Task、原 Spec、README、TODO 与必要验证索引；发现代码缺陷退回责任任务或新建有界修复任务，不能在 Review 中实现一批遗漏能力。
   - 检查内容：需求与实际实现一致；所有勾选均有有效证据；文档路径／命令实际存在；无 Skill／Hooks 硬依赖；不展示估算和验收误导文案；无凭证／私人记录；第三方复用有许可证处理；二期事项引用可达。
   - 验证方式：重跑 `pnpm lint && pnpm typecheck && pnpm test && pnpm build`，审查 I1／I2 的真实环境证据及 AC 映射；输出通过／不通过结论和剩余门禁。无真机证据时不能给出整体通过。
@@ -266,7 +275,7 @@
 | AC03 身份与串数据防护 | T03、T12、T13、T18、T19 | I2 |
 | AC04 候选与手动回退 | T08、T09、T16 | I1 的手动路径；I2 的真实会话线索 |
 | AC05 绑定与隔离 | T05、T06、T13、T16、T17 | I1；I2 的多窗口／worktree |
-| AC06 解析与诚实计数 | T04、T15 | I1 |
+| AC06 解析与诚实计数 | T04、T15、T21 | I1；T21 的绑定快照汇总验证 |
 | AC07 实时快照与异常 | T07 | I1；I2 的 Mac 时延与恢复 |
 | AC08 清单交互与宿主兼容 | T12、T15、T16、T17、T19 | I1；I2 |
 | AC09 生命周期与降级 | T07、T11、T13、T14、T18、T19、T20 | I2 |
@@ -290,7 +299,7 @@ T08 依据 M2 已实现有限的真实记录适配，而非固定返回“日志
 
 后续按任务写入真实状态、产物与验证引用。任务拆分保留原 ID 与验收义务，父项改为分组并说明计数口径变化；不靠拆分增加完成量。事项延期须引用 [TODO](../TODO.md) 中的 ID 与原始要求，不把移动或归档当作完成。
 
-2026-09-26：继续完成 T08／T10／T11／T12／T18／T19／T20，实现内嵌版并通过 [CI 36234589984](https://github.com/yzin-17/codex-task-lens/actions/runs/36234589984)。共 20 / 23；T02／I2／R1 保持未勾选。修复跨 CDP 客户端重连残留 world 与 CLI 就绪前关停竞态；未修改任务分母或引入二期估算。
+2026-09-26：继续完成 T08／T10／T11／T12／T18／T19／T20，实现内嵌版并通过 [CI 36234589984](https://github.com/yzin-17/codex-task-lens/actions/runs/36234589984)。当时共 20 / 23；T02／I2／R1 保持未勾选。修复跨 CDP 客户端重连残留 world 与 CLI 就绪前关停竞态；未修改任务分母或引入二期估算。
 
 2026-09-26：通过 Remote Desktop Commander 完成本机安装、签名检查与核心回归，修正诊断命令分发和测试启动／异步断言问题。当前 Codex 普通启动未开放 CDP，未强退或重启；T02 部分补录，I2／R1 保持未通过。见 [实际 Mac 预检](../validation/task-lens-mvp/mac-preflight-2026-09-26.md)。
 
@@ -298,4 +307,6 @@ T08 依据 M2 已实现有限的真实记录适配，而非固定返回“日志
 
 2026-09-26：定位并修复专用隐藏会话标记误过滤；用户当前对话已识别并显示清单入口，新增 7 项浏览器回归。只重载 Task Lens，不重启 Codex。T02／I2／R1 仍待完整场景证据；见 [识别修复记录](../validation/task-lens-mvp/mac-hidden-sentinel-2026-09-26.md)。
 
-2026-09-26：用户批准工具栏浮窗＋多文档修订，见 [独立修订台账](toolbar-multidoc.md)。原 23 项分母不变，旧单文件内联证据不代替新交互门禁。
+2026-09-26：用户批准工具栏浮窗＋多文档修订，见 [独立修订台账](toolbar-multidoc.md)。当时原 23 项分母不变，旧单文件内联证据不代替新交互门禁。
+
+2026-09-29：完成 T21，为 GFM 表格首列复选框增加只读任务识别；定向测试、类型检查、lint 与构建通过。用户指定文档由当前解析器得到 0/29；运行中的 Task Lens 未重载，I2／R1 仍待各自验收。

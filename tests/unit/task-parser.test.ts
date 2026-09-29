@@ -1,6 +1,32 @@
 import { describe, expect, it } from 'vitest';
 import { parseTasks, taskFingerprint } from '../../src/core/task-parser.js';
 describe('GFM leaf tasks', () => {
+  it('counts leading first-cell table checkboxes as independent tasks with row details and scope', () => {
+    const source = [
+      '# Plan',
+      '',
+      '| [ ] Task | Description | Validation |',
+      '| --- | --- | --- |',
+      '| [ ] C01 Inventory | producers and consumers | check route |',
+      '| [X] C02 Done | frozen contract | passed |',
+      '| [ ] | Fallback title | detail |',
+      '| Not a task | [ ] marker outside first column | details |',
+      '| `[ ]` example | inline code is not a task | details |',
+      '',
+      '## Follow-up',
+      '| Task | Description |',
+      '| --- | --- |',
+      '| [x] T1 Finished | detail |',
+    ].join('\n');
+    const result = parseTasks(source);
+    expect(result.items.map(item => [item.explicitId, item.title, item.checked])).toEqual([
+      ['C01', 'Inventory', false], ['C02', 'Done', true], [undefined, 'Fallback title', false], ['T1', 'Finished', true],
+    ]);
+    expect(result).toMatchObject({completed:2,incomplete:2,total:4});
+    expect(result.items[0]).toMatchObject({line:5,endLine:5,groups:['Plan']});
+    expect(result.items[0]?.raw).toContain('| check route |');
+    expect(parseTasks(source, result.sections[1]!.scope).items.map(item => item.title)).toEqual(['Finished']);
+  });
   it('counts nested leaves once, keeps source order and normal detail lists', () => {
     const result = parseTasks('# 实施\n\n- [x] T1：准备\n  - 验证：通过\n- [ ] T2：父任务\n  - [X] 重复标题\n  - [ ] 重复标题\n1. [x] 没有编号\n');
     expect(result.total).toBe(4); expect(result.completed).toBe(3);

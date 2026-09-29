@@ -31,6 +31,14 @@ it('counts documents independently, preserves members on removal and shares watc
   expect(summarizeDocuments(await service.snapshot(a))).toMatchObject({ completed: 2, total: 2, documents: 1 });
   expect(store.get(b).binding?.documentRealPath).toBe(one.path);
 });
+it('includes table checkbox rows in bound document totals', async () => {
+  await writeFile(path.join(root, 'a.md'), '# Table tasks\n\n| Task | Detail |\n| --- | --- |\n| [ ] T1 Pending | verify path |\n| [X] T2 Done | verify count |\n');
+  const item = await preview('a');
+  await service.confirm(a, 0, item.id, 0);
+  await expect.poll(async () => summarizeDocuments(await service.snapshot(a))).toMatchObject({
+    completed: 1, total: 2, partial: false, warning: false, documents: 1,
+  });
+});
 it('rejects a changed preview or duplicate real file without partially saving the set', async () => {
   await service.confirm(a, 0, (await preview('a')).id, 0);
   const initial = store.get(a), two = await preview('b'), three = await preview('c');
