@@ -12,6 +12,7 @@
 4. macOS 与 Windows 分别构建独立 ZIP；两者共用平台无关 Agent bundle，但直接启动入口不同。
 5. 解压即用：macOS ZIP 直接包含 `.app`，Windows ZIP 直接包含隐藏 `.vbs` 启动器，不再运行安装脚本或创建快捷方式。
 6. 删除旧 Electron 源码、依赖、测试与 workflow；仓库只保留轻量 Agent 发行链路。
+7. 带预发布后缀的版本标签创建 prerelease；正式版本标签创建最新稳定 Release，并拒绝覆盖同名 Release。
 
 ## 发行结构
 
@@ -47,4 +48,4 @@
 - 内嵌退出必须先收到成功 reply，再触发 Agent shutdown；退出后 Codex 进程与 CDP listener 保持运行，重新双击可恢复注入。
 - Node 22.20 与 Node 24 均通过 Agent bundle 验证；macOS/Windows 原生 smoke 使用最低支持版本 Node 22.20。
 - Linux/macOS 主 CI 与 macOS/Windows Agent smoke 均通过。
-- 新版本 Release 分别发布 macOS ZIP、Windows ZIP、校验和与 smoke 报告；Electron 大包不随 tag 自动发布。
+- 新版本 Release 只发布 macOS 与 Windows ZIP；CI 校验两平台 smoke 报告，但不将报告或校验和作为 Release 附件；Electron 大包不随 tag 自动发布。

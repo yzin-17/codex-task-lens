@@ -92,7 +92,7 @@ jobs:
           path: artifacts
           merge-multiple: true
       - run: node scripts/validate-agent-release.mjs artifacts
-      - name: Publish lightweight prerelease
+      - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -100,4 +100,10 @@ jobs:
           version=$(node -p 'JSON.parse(require("fs").readFileSync("package.json")).version')
           test "$GITHUB_REF_NAME" = "v$version"
           if gh release view "v$version" >/dev/null 2>&1; then echo 'Release exists; refusing to overwrite assets'; exit 1; fi
-          gh release create "v$version" artifacts/Codex-Task-Lens-*.zip --target "$GITHUB_SHA" --prerelease --title "Codex Task Lens $version" --notes-file "docs/releases/$version.md"
+          release_flags=()
+          if [[ "$version" == *-* ]]; then
+            release_flags+=(--prerelease)
+          else
+            release_flags+=(--latest)
+          fi
+          gh release create "v$version" artifacts/Codex-Task-Lens-*.zip --target "$GITHUB_SHA" "${release_flags[@]}" --title "Codex Task Lens $version" --notes-file "docs/releases/$version.md"
