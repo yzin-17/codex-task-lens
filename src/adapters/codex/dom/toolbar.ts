@@ -1,8 +1,9 @@
 const permissionLabels = ['更改权限', 'Change permissions', 'Permissions'];
 const attachmentLabels = ['添加文件等内容', 'Add files and more', 'Add files'];
+export const COMPOSER_ROOT_SELECTOR = '[data-codex-composer-root],[data-composer-root],[class*="_ComposerLayoutRoot_"],form';
 /** Only mount inside the current composer's left action group; never infer from sidebar text. */
 export function findComposerToolbar(editor: Element, anchor: HTMLElement): HTMLElement | null {
-  const shell = editor.closest<HTMLElement>('[data-composer-root],[class*="_ComposerLayoutRoot_"],form');
+  const shell = editor.closest<HTMLElement>(COMPOSER_ROOT_SELECTOR);
   if (!shell || (shell !== anchor && !anchor.contains(shell))) return null;
   const safe = (node: HTMLElement) => {
     const rect = node.getBoundingClientRect(), style = getComputedStyle(node);
@@ -28,7 +29,7 @@ export function conversationBounds(editor: Element): { left: number; top: number
   const viewport = win.visualViewport;
   const left = viewport?.offsetLeft ?? 0, top = viewport?.offsetTop ?? 0;
   const width = viewport?.width ?? win.innerWidth, height = viewport?.height ?? win.innerHeight;
-  const shell = editor.closest<HTMLElement>('[data-composer-root],[class*="_ComposerLayoutRoot_"],form');
+  const shell = editor.closest<HTMLElement>(COMPOSER_ROOT_SELECTOR);
   const fallback = (shell ?? editor).getBoundingClientRect();
   let column = { left: fallback.left, top, width: fallback.width, height };
   for (let node = shell?.parentElement; node && node !== doc.body; node = node.parentElement) {

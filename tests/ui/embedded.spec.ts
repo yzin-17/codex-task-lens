@@ -179,6 +179,60 @@ async function hiddenSentinelLayout(page: Page) {
   }, a);
   await expect(page.locator('[data-task-lens-host]')).toHaveCount(1);
 }
+// Structural reproduction of the 26.1007 declared root, without private content.
+async function declaredComposerLayout(page: Page, wrappers = 10) {
+  await page.locator('.pane').evaluate((pane, { id, wrappers }) => {
+    pane.removeAttribute('data-thread-id');
+    const root = document.createElement('div'); root.setAttribute('data-codex-composer-root', '');
+    const marker = document.createElement('div'); marker.style.display = 'none';
+    marker.setAttribute('data-above-composer-conversation-id', id);
+    const editor = document.createElement('textarea'); editor.setAttribute('aria-label', '输入');
+    let input: HTMLElement = editor;
+    for (let i = 0; i < wrappers; i++) { const wrapper = document.createElement('div'); wrapper.append(input); input = wrapper; }
+    const toolbar = document.createElement('div'); toolbar.style.display = 'flex';
+    toolbar.innerHTML = '<button aria-label="更改权限">权限</button>';
+    root.append(marker, input, toolbar); pane.replaceChildren(root);
+  }, { id: a, wrappers });
+}
+test('declared Codex composer root identifies deep metadata and isolates A→B→A', async () => {
+  const f = await fixture(); try {
+    await declaredComposerLayout(f.page);
+    await expect(f.page.locator('.lens-thread-label')).toContainText(a.slice(0, 8));
+    await expect(f.page.locator('[data-codex-composer-root] [data-task-lens-host]')).toHaveCount(1);
+    const file = path.join(f.root, 'deep-root.md'); await writeFile(file, '- [ ] retained task\n');
+    await expand(f.page); await bind(f.page, file);
+    const marker = f.page.locator('[data-above-composer-conversation-id]');
+    await marker.evaluate((node, id) => node.setAttribute('data-above-composer-conversation-id', id), b);
+    await expect(f.page.locator('.lens-thread-label')).toContainText(b.slice(0, 8));
+    await expect(f.page.getByText('retained task', { exact: true })).toHaveCount(0);
+    await marker.evaluate((node, id) => node.setAttribute('data-above-composer-conversation-id', id), a);
+    await expect(f.page.locator('.lens-thread-label')).toContainText(a.slice(0, 8)); await expand(f.page);
+    await expect(f.page.getByText('retained task', { exact: true })).toBeVisible();
+  } finally { await f.close(); }
+});
+test('declared root refuses outer identities, conflicts and multiple visible editors', async () => {
+  const f = await fixture(); try {
+    await declaredComposerLayout(f.page);
+    const marker = f.page.locator('[data-above-composer-conversation-id]');
+    await marker.evaluate(node => node.parentElement!.parentElement!.prepend(node));
+    await expect(f.page.locator('.lens-unknown')).toBeVisible();
+    await marker.evaluate(node => document.querySelector('[data-codex-composer-root]')!.prepend(node));
+    await expect(f.page.locator('.lens-thread-label')).toContainText(a.slice(0, 8));
+    await marker.evaluate((node, id) => { const conflict = node.cloneNode() as HTMLElement; conflict.setAttribute('data-above-composer-conversation-id', id); node.after(conflict); }, b);
+    await expect(f.page.locator('.lens-unknown')).toBeVisible();
+    await f.page.locator('[data-above-composer-conversation-id]').last().evaluate(node => node.remove());
+    await expect(f.page.locator('.lens-unknown')).toHaveCount(0);
+    await f.page.locator('[data-codex-composer-root]').evaluate(root => root.append(document.createElement('textarea')));
+    await expect(f.page.locator('.lens-thread-label')).toHaveCount(0);
+  } finally { await f.close(); }
+});
+test('declared root keeps a finite depth limit', async () => {
+  const f = await fixture(); try {
+    await declaredComposerLayout(f.page, 32);
+    await expect(f.page.locator('.lens-unknown')).toBeVisible();
+    await expect(f.page.locator('.lens-thread-label')).toHaveCount(0);
+  } finally { await f.close(); }
+});
 test('hidden composer metadata identifies the real pane and restores A→B→A bindings', async () => {
   const f = await fixture(); try {
     await hiddenSentinelLayout(f.page);

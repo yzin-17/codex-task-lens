@@ -1,4 +1,4 @@
-import { findComposerToolbar } from './toolbar.js';
+import { COMPOSER_ROOT_SELECTOR, findComposerToolbar } from './toolbar.js';
 export const THREAD_ATTRIBUTES = ['data-above-composer-conversation-id', 'data-conversation-id', 'data-thread-id'] as const;
 const identitySelector = THREAD_ATTRIBUTES.map(name => `[${name}]`).join(',');
 const editorSelector = 'textarea,[contenteditable="true"][role="textbox"],[contenteditable="true"].ProseMirror';
@@ -37,16 +37,20 @@ export function createDomAdapter(doc: Document) {
       const selected: PaneSelection[] = [], used = new Set<HTMLElement>(), nextActive = new Set<Element>();
       const editors = [...doc.querySelectorAll(editorSelector)].filter(visible).filter(node => !node.closest('[data-task-lens-host]'));
       for (const editor of editors.slice(0, 16)) {
+        // Codex 26.1007 declares a local composer root beyond the legacy ten wrappers.
+        // Search deeper only within that explicit boundary, never across sibling panes.
+        const declaredRoot = editor.closest<HTMLElement>('[data-codex-composer-root]');
         let region: HTMLElement | null = editor.parentElement;
         let values: string[] = [];
-        for (let depth = 0; region && region !== doc.body && depth < 10; depth++, region = region.parentElement) {
+        for (let depth = 0; region && region !== doc.body && (!declaredRoot || declaredRoot.contains(region)) && depth < (declaredRoot ? 32 : 10); depth++, region = region.parentElement) {
           if ([...region.querySelectorAll(editorSelector)].filter(visible).length !== 1) break;
           const nodes = [...region.querySelectorAll(identitySelector)];
           if (region.matches(identitySelector)) nodes.unshift(region);
           values = nodes.filter(node => activeMarker(node, region!)).flatMap(node => THREAD_ATTRIBUTES.filter(name => node.hasAttribute(name)).map(name => node.getAttribute(name)!));
           if (values.length) break;
+          if (region === declaredRoot) break;
         }
-        const shell = editor.closest<HTMLElement>('[data-composer-root],[class*="_ComposerLayoutRoot_"],form');
+        const shell = editor.closest<HTMLElement>(COMPOSER_ROOT_SELECTOR);
         // An identity-less known composer can show an honest unknown state. An arbitrary textarea cannot.
         if (!values.length || !region || region === doc.body) {
           if (!shell || [...shell.querySelectorAll(editorSelector)].filter(visible).length !== 1) continue;
