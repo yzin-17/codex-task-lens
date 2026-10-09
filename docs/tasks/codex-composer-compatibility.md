@@ -44,7 +44,7 @@
 - [x] P1：升级 `package.json`，新增中文发布说明，并验证本地 macOS 发行包和直接启动检查。
   - 输入：C1/G1 已通过；`main` 只有本轮已提交修复，远端已同步。
   - 写入：`package.json`、`docs/releases/0.1.2.md`、本任务记录与构建产物。
-- [ ] P2：提交并推送 `main`，主分支 CI 与发行包检查通过后推送新标签；检查标签工作流与 Release 附件。
+- [x] P2：提交并推送 `main`，主分支 CI 与发行包检查通过后推送新标签；检查标签工作流与 Release 附件。
   - 依赖：P1 通过。
   - 验收：`main` 与远端一致，新标签指向经过验证的提交，Release 包含 macOS/Windows 两个 `0.1.2` 发行包，标签工作流成功。
 
@@ -53,3 +53,13 @@
 P1 证据：`package.json` 与发布说明均为 `0.1.2`；本地 macOS 包构建及 `pnpm test:agent` 通过，隔离目录中的启动器连续启动检查通过。归档大小 `634242` 字节，直接启动报告见 `release/agent-smoke-darwin-arm64.json`（忽略的本地产物）。默认 CommandLineTools SDK 与 Xcode 链接器不兼容，显式使用 Xcode 自带 SDK 后编译通过；图标生成使用允许的系统打包权限完成，未改系统设置。
 
 发布前完整单元／集成复核：38 个测试文件、141 项测试通过。沙箱内首次运行出现一项共享文件监听断言失败；明确仓库路径的非沙箱完整复核通过，远端 CI 仍作为标签前的必要门禁。
+
+P2 证据（2026-10-10）：
+
+- 修复提交 `427c2ef` 与版本提交 `c92f89b` 已推送；新标签 `v0.1.2` 指向 `c92f89b09fa68c683558b013327a12256f9a63ce`，远端核对一致。
+- [主分支 CI](https://github.com/yzin-17/codex-task-lens/actions/runs/37974507153)：Ubuntu/macOS 验证均成功，覆盖完整单元／集成测试、构建和浏览器测试。
+- [主分支发行包检查](https://github.com/yzin-17/codex-task-lens/actions/runs/37974506978)：成功。
+- [标签发布流程](https://github.com/yzin-17/codex-task-lens/actions/runs/37974826892)：Node.js `22.20.0`/`24` 验证、Windows/macOS 打包及直接启动检查、发布全部成功。
+- [0.1.2 Release](https://github.com/yzin-17/codex-task-lens/releases/tag/v0.1.2)：正式版本、非草稿，已标记为最新版本；macOS ZIP `627346` 字节、Windows ZIP `304100` 字节，两份附件的版本与名称一致。未修改已有 Release。
+
+发布最终核对通过：P1/P2 的门禁完整，版本、标签目标、发行包和发布说明一致；本条证据补录仅更新文档，不移动发布标签或改动已发布产物。
